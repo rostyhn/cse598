@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "cse598"
+version = "0.1.0"
+description = ""
+authors = ["Rostyslav Hnatyshyn <rostyslav.hnatyshyn@gmail.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+numpy = "^1.26.4"
+ipython = "^8.22.2"
+scipy = "^1.12.0"
+sympy = "^1.12"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

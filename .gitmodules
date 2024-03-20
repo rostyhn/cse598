@@ -1,0 +1,3 @@
+[submodule "iCaML"]
+	path = iCaML
+	url = https://github.com/AAIR-lab/iCaML.git
