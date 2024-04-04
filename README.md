@@ -8,7 +8,7 @@ poetry shell
 cd iCaML
 python3 kuka.py
 ```
-
+Try deleting the results folder if the sim opens but immediately crashes.
 The following is the original readme text.
 ___
 

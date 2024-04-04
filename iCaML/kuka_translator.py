@@ -21,14 +21,14 @@ def saved_plan(function):
     return _saved_plan
 
 class KukaTranslator(Translator):
-    def __init__(self, environment, motors, ground_actions=False,files_dir=""):
-        super().__init__(AbstractKukaState)   
+    def __init__(self, environment, motors, ground_actions=False, files_dir=""):
+        super().__init__(AbstractKukaState)
         self.files = files_dir
         self.high_actions = {}
         self.random_states = []
-        self.ground_actions=ground_actions
+        self.ground_actions = ground_actions
         self.saved_plans = {}
-        self.plan_history_file = f"{files_dir}zelda_plans"
+        self.plan_history_file = f"{files_dir}plans"
         self.environment = environment
         self.motors = motors
 
@@ -39,17 +39,6 @@ class KukaTranslator(Translator):
     # TODO: implement for translator
     def generate_random_state(self):
         random_state = KukaState()
-        #while True:
-            #try:
-         #   random_state = KukaState()
-            
-          #  random_state.objects = invert_dictionary(random_state.rev_objects)
-           # if self.validate_state(self.abstract_state(random_state)):
-            #    break
-            #else:
-                #print("still generating")
-             #   self.validate_state(self.abstract_state(random_state))
-            
         return random_state
    
     def get_next_state(self,state,action):
@@ -109,13 +98,14 @@ class KukaTranslator(Translator):
         print("Planning")
         if algo == "human":
             done = False
+            print("about to")
             while not done:
                 action = []
                 for motorId in self.motors:
                     action.append(self.environment._p.readUserDebugParameter(motorId))
                 state, reward, done, info = self.environment.step2(action)
                 obs = self.environment.getExtendedObservation()
-                print(obs) 
+                print(obs)
         else:
             action_list,total_nodes_expanded = search(state1_,state2_,self,algo)
         return action_list,total_nodes_expanded
