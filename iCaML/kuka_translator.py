@@ -1,7 +1,9 @@
 import copy
 import pickle
 
+import numpy as np
 from kuka_state import AbstractKukaState, KukaState
+from tf_agents.environments.suite_gym import wrap_env
 from utils.helpers import invert_dictionary, state_to_set
 
 from gvg_agents.Search import search
@@ -32,35 +34,29 @@ class KukaTranslator(Translator):
         self.environment = environment
         self.motors = motors
 
-    def update_high_actions(self,actions):
+    def update_high_actions(self, actions):
         #just to make sure this is called atleast once
         self.high_actions.update(actions)
-
-    # TODO: implement for translator
-    def generate_random_state(self):
-        random_state = KukaState()
-        return random_state
    
-    def get_next_state(self,state,action):
+    def get_next_state(self, state, action):
         '''
             given state and action, apply action virtually and get resulting state
-            actions: up,down,right,left,use
-            input: ZeldaState, Action name
             assume only legal actions applied, including no effect
         '''
+        self.environment._p.restoreState(state.state["stateID"])
+        state, reward, done, info = self.environment.step2(action)
+        s_id = self.environment._p.saveState()
+        return KukaState(s_id)
 
-        return next_state
-
-    def get_successor(self,state):
+    def get_successor(self, state):
         action_dict = {
-        'ACTION_UP':[],
         'ACTION_DOWN':[],
         'ACTION_RIGHT':[],
         'ACTION_LEFT':[],
         'ACTION_USE':[],
         }
         for action in action_dict:
-            next_state = self.get_next_state(state,action)
+            next_state = self.get_next_state(state, action)
             if next_state == state:
                 action_dict[action] = [0,state]
             else:
@@ -84,6 +80,9 @@ class KukaTranslator(Translator):
 
     # https://github.com/bulletphysics/bullet3/blob/master/examples/pybullet/gym/pybullet_envs/bullet/kuka.py
 
+    from tf_agents.agents.dqn import dqn_agent
+    from tf_agents.environments.suite_gym import wrap_env
+
     @saved_plan
     def plan_to_state(self,state1,state2,algo="custom-astar",full_trace = False):
         '''
@@ -92,23 +91,36 @@ class KukaTranslator(Translator):
         '''
         state1_ = copy.deepcopy(state1)
         state2_ = copy.deepcopy(state2)
-        #action_dict = self.get_successor(state1_)
         total_nodes_expanded = []
         action_list = []
+        tf_env = wrap_env(self.environment)
+        print(type(tf_env))
+
+        # build DQN agent here https://www.tensorflow.org/agents
+        """
+        TODO
+        agent = dqn_agent.DqnAgent(
+            train_env.time_step_spec(),
+            train_env.action_spec(),
+            q_network=q_net,
+            optimizer=optimizer,
+            td_errors_loss_fn=common.element_wise_squared_loss,
+            train_step_counter=tf.Variable(0))
+        etc...
+        """
         print("Planning")
         if algo == "human":
+            # figure out how to get the agent to solve the environment
             done = False
-            print("about to")
+            obs = np.array(self.environment._observation)
             while not done:
-                action = []
-                for motorId in self.motors:
-                    action.append(self.environment._p.readUserDebugParameter(motorId))
-                state, reward, done, info = self.environment.step2(action)
-                obs = self.environment.getExtendedObservation()
-                print(obs)
+                self.environment.render()
+                obs, reward, done, info = self.environment.step(action)
+                # save the actions the agent takes in action_list
+                action_list.append(action)
         else:
-            action_list,total_nodes_expanded = search(state1_,state2_,self,algo)
-        return action_list,total_nodes_expanded
+            action_list, total_nodes_expanded = search(state1_,state2_,self,algo)
+        return action_list, total_nodes_expanded
 
     def execute_from_ID(self,abs_state,abs_action):
         try:
@@ -123,112 +135,16 @@ class KukaTranslator(Translator):
         except KeyError:
             print("Unknown Action ID!")
 
-    def validate_state(self,ostate):
+    def validate_state(self, ostate):
         '''
             Given ABSTRACT STATE, validate it
             assuming cell positioning is correct already, those are not to be learnt anyway
         '''
-        state = copy.deepcopy(ostate.state)
-        rev_objs = copy.deepcopy(ostate.rev_objects)
-        player_loc = None
-        key_loc = None
-        door_loc = None
-        monster_loc = None
-        occupied_cells = []
-        
-        necessary_keys = ['leftOf','rightOf','above','below']
-        if len(set(tuple(necessary_keys)).difference(tuple(state.keys())))>0:
-            return False
-
-        for k,values in state.items():
-            if 'at' in k:
-                for v in values:
-                    if v[0] == 'player0':
-                        if player_loc!=None:
-                            return False
-                        player_loc = v[1]
-                        occupied_cells.append(v[1])
-                    elif v[0] == 'key0':
-                        key_loc = v[1]
-                        occupied_cells.append(v[1])
-                    elif v[0] == 'door0':
-                        door_loc = v[1]
-                    else:
-                        monster_loc = v[1]
-                        occupied_cells.append(v[1])
-
-        if state.get('wall')!=None:
-            for v in state.get('wall'):
-                occupied_cells.append(v[0])
-
-        #at, wall, clear
-        if len(occupied_cells)!=len(set(occupied_cells)):
-            return False
-        
-        for k,v in rev_objs.items():
-            if v == 'location':
-                if state.get('clear')!=None:
-                    if (k in occupied_cells and (k,) in state.get('clear')) or (k not in occupied_cells and (k,) not in state.get('clear')):
-                        return False
-
-        if player_loc!=None:
-            #at player, is_player, next_to_monster
-            player_x = int(player_loc.replace('cell_','').split('_')[0])
-            player_y = int(player_loc.replace('cell_','').split('_')[1])
-            if monster_loc!=None:
-                monster_x = int(monster_loc.replace('cell_','').split('_')[0])
-                monster_y = int(monster_loc.replace('cell_','').split('_')[1])
-                if (abs(monster_x-player_x) + abs(monster_y-player_y) == 1) and state.get('next_to_monster') == None:
-                    return False
-            else:
-                if state.get('next_to_monster')!=None:
-                    return False
-        else:
-            if state.get('next_to_monster')!=None:
-                    return False
-
-        if key_loc!=None:
-            #at key, is_key, has_key
-            if state.get('has_key')!=None:
-                return False
-        
-        if door_loc == None:
-            if state.get('escaped')!=None:
-                return False
-
-        if monster_loc!= None:
-            #at monster, is_monster, monster_alive, next_to_monster
-            monster_x = int(monster_loc.replace('cell_','').split('_')[0])
-            monster_y = int(monster_loc.replace('cell_','').split('_')[1])
-            monster_name = 'monster_'+str(monster_x)+'_'+str(monster_y)
-            if state.get('monster_alive')!=[(monster_name,)]:
-                return False
-            if state.get('next_to_monster')!=None:
-                if player_loc!=None:
-                    player_x = int(player_loc.replace('cell_','').split('_')[0])
-                    player_y = int(player_loc.replace('cell_','').split('_')[1])
-                    if(abs(monster_x-player_x) + abs(monster_y-player_y) != 1):
-                        return False
-                else:
-                    return False
-        else:
-            if state.get('monster_alive')!=None:
-                return False
-            if state.get('next_to_monster')!=None:
-                return False       
-        
-        if state.get('escaped')!=None:
-            if state.get('monster_alive')!=None or state.get('has_key')==None or (player_loc!=door_loc and player_loc!=None):
-                return False    
-        else:
-            if (door_loc == player_loc) and (door_loc!=None) and state.get('has_key')!=None and monster_loc == None:
-                return False
         return True    
-          
+    
+    # convert low-level state into abstract high-level one
     def abstract_state(self,low_state):
-        unary_predicates = ['has_key','escaped','monster_alive','next_to_monster']
         abs_state = AbstractKukaState()
-
         return abs_state
 
     def generate_ds(self):

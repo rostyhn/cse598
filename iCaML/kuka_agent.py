@@ -4,10 +4,12 @@ import pickle
 
 from kuka_translator import KukaTranslator
 
+from iCaML.kuka_state import AbstractKukaState, KukaState
+import random
 
 class KukaAgent:
     def __init__(self, env, motors, ground_actions=False):
-        self.env = env
+        self.environment = env
         self.motors = motors
         self.ground_actions = ground_actions
         files_dir = os.path.abspath("../results/kuka/")
@@ -21,7 +23,6 @@ class KukaAgent:
         self.high_actions_dict = f"{files_dir}high_actions_dict"
         self.high_traces = f"{files_dir}high_traces"
 
-        temp_states = []
         self.random_states = []
         self.avg_trace_length = 0.0
         self.num_traces = 0
@@ -90,8 +91,6 @@ class KukaAgent:
         add_intermediate=True,
         algo="custom_astar",
     ):
-        print("add generate random states")
-        # load previously pickled states
         try:
             with open(self.random_states_file, "rb") as f:
                 old_random_states = pickle.load(f)
@@ -108,22 +107,24 @@ class KukaAgent:
             old_traces = []
 
         new_traces = []
-        initial_random_states = [
-            self.translator.generate_random_state() for i in range(n)
-        ]
+        initial_random_states = []
+
         if add_intermediate:
             abs_random_states = []
             solved_random_states = []
             num_random_traces = 0
             add_rs = []
             # get intermediate states
-            for s in initial_random_states:
+            for i in range(n):
+                # environment.reset() always returns a random state
+                self.environment.reset() 
+                s = KukaState(self.environment._p.saveState())
                 st, actions = self.solve_game(s, _actions=True, algo="human")
 
-                if st != False:
-                    actions.append("ACTION_ESCAPE")
+                if st is not False:
                     solved_random_states.extend(st)
                     new_traces.append(list(zip(st, actions)))
+
                 for _ in range(num_random_traces):
                     tr = self.get_random_trace(s)
                     for s_, a in tr:
@@ -135,12 +136,6 @@ class KukaAgent:
             if abstract:
                 for s in solved_random_states:
                     s_ = self.translator.abstract_state(s)
-                    if not self.translator.validate_state(s_):
-                        print("WWWTTTTFFF!")
-                        self.translator.validate_state(s_)
-                    # if self.ground_actions:
-                    #     #abs_random_states.append(self.translator.get_ground_state(s_))
-                    # else:
                     if (
                         s_ not in old_random_states
                         and s_ not in abs_random_states
@@ -170,15 +165,15 @@ class KukaAgent:
         return final_random
 
     def get_solved_state(self, state):
-        temp_state = copy.deepcopy(state)
+        temp_state = AbstractKukaState() 
         temp_state.state["grasped"] = [True]
         return temp_state
 
     def solve_game(self, state, _actions=False, algo="custom-astar"):
         states = []
+        self.environment._p.restoreState(state.state["stateID"])
         final_state = self.get_solved_state(state)
 
-        test_state = copy.deepcopy(state)
         actions, total_nodes_expanded = self.translator.plan_to_state(
             state, final_state, algo
         )
@@ -194,11 +189,29 @@ class KukaAgent:
         # print(plot_state(state))
         print("Solved!")
         print(actions)
+        # why not just drop this and return the states along the way?
         for a in actions:
             tstate = self.translator.get_next_state(cstate, a)
-            cstate = copy.deepcopy(tstate)
-            states.append(cstate)
+            states.append(tstate)
         if not _actions:
             return states
         else:
             return states, actions
+
+
+    # https://github.com/bulletphysics/bullet3/discussions/3814
+    # https://github.com/bulletphysics/bullet3/blob/master/examples/pybullet/gym/pybullet_robots/panda/batchsim3_grasp.py
+    def get_random_trace(self, state):
+        max_len = 50
+        trace = []
+        for _ in range(max_len):
+            succ = self.translator.get_successor(state)
+            choice = random.choice(list(succ.keys()))
+            if state.state["escaped"][0]:
+                trace.append((succ[choice][1], "ACTION_ESCAPE"))
+                state = succ[choice][1]
+                break
+            else:
+                trace.append((succ[choice][1], choice))
+                state = succ[choice][1]
+        return trace
