@@ -82,6 +82,10 @@ class KukaTranslator(Translator):
 
     from tf_agents.agents.dqn import dqn_agent
     from tf_agents.environments.suite_gym import wrap_env
+    from tf_agents.utils import common
+    from tf_agents.networks import sequential
+    from tf_agents.specs import tensor_spec
+
 
     @saved_plan
     def plan_to_state(self,state1,state2,algo="custom-astar",full_trace = False):
@@ -96,6 +100,9 @@ class KukaTranslator(Translator):
         tf_env = wrap_env(self.environment)
         print(type(tf_env))
 
+        # gym_env = suite_gym.load(self.environment)
+        # tf_env = tf_py_environment.TFPyEnvironment(gym_env)
+
         # build DQN agent here https://www.tensorflow.org/agents
         """
         TODO
@@ -108,6 +115,44 @@ class KukaTranslator(Translator):
             train_step_counter=tf.Variable(0))
         etc...
         """
+        optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=0.001)
+
+
+        fc_layer_params = (100, 50)
+        action_tensor_spec = tensor_spec.from_spec(tf_env.action_spec())
+        num_actions = action_tensor_spec.maximum - action_tensor_spec.minimum + 1
+
+        def dense_layer(num_units):
+            return tf.keras.layers.Dense(
+                num_units,
+                activation=tf.keras.activations.relu,
+                kernel_initializer=tf.keras.initializers.VarianceScaling(
+                    scale=2.0, mode='fan_in', distribution='truncated_normal'))
+
+
+        dense_layers = [dense_layer(num_units) for num_units in fc_layer_params]
+        q_values_layer = tf.keras.layers.Dense(
+            num_actions,
+            activation=None,
+            kernel_initializer=tf.keras.initializers.RandomUniform(
+                minval=-0.03, maxval=0.03),
+            bias_initializer=tf.keras.initializers.Constant(-0.2))
+
+        q_net = sequential.Sequential(dense_layers + [q_values_layer])
+        
+        train_step_counter = tf.Variable(0)
+
+        agent = dqn_agent.DqnAgent(
+            tf_env.time_step_spec(),
+            tf_env.action_spec(),
+            q_network=q_net,
+            optimizer=optimizer,
+            td_errors_loss_fn=common.element_wise_squared_loss,
+            train_step_counter=train_step_counter)
+        agent.initialize()
+
+
+
         print("Planning")
         if algo == "human":
             # figure out how to get the agent to solve the environment
@@ -115,6 +160,10 @@ class KukaTranslator(Translator):
             obs = np.array(self.environment._observation)
             while not done:
                 self.environment.render()
+
+                action = agent.collect_policy.action(time_step)
+                time_step = tf_env.step(action)
+
                 obs, reward, done, info = self.environment.step(action)
                 # save the actions the agent takes in action_list
                 action_list.append(action)
