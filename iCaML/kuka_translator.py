@@ -10,6 +10,14 @@ from gvg_agents.Search import search
 from gvg_agents.sims.gvg_translator import Translator
 
 
+from tf_agents.agents.dqn import dqn_agent
+from tf_agents.environments.suite_gym import wrap_env
+import tensorflow as tf
+from tf_agents.specs import tensor_spec
+from tf_agents.utils import common
+from tf_agents.networks import sequential
+
+
 def saved_plan(function):
     def _saved_plan(self,state1,state2,algo,full_trace=False):
         pkey = str("||".join(sorted(state_to_set(state1.state)))) + "|||" + str("||".join(sorted(state_to_set(state2.state))))
@@ -80,18 +88,7 @@ class KukaTranslator(Translator):
 
     # https://github.com/bulletphysics/bullet3/blob/master/examples/pybullet/gym/pybullet_envs/bullet/kuka.py
 
-    from tf_agents.agents.dqn import dqn_agent
-    from tf_agents.environments.suite_gym import wrap_env
-    from tf_agents.utils import common
-    from tf_agents.networks import sequential
-    from tf_agents.specs import tensor_spec
-
-    def dense_layer(num_units):
-        return tf.keras.layers.Dense(
-            num_units,
-            activation=tf.keras.activations.relu,
-            kernel_initializer=tf.keras.initializers.VarianceScaling(
-                scale=2.0, mode='fan_in', distribution='truncated_normal'))
+    
 
     @saved_plan
     def plan_to_state(self,state1,state2,algo="custom-astar",full_trace = False):
@@ -128,6 +125,12 @@ class KukaTranslator(Translator):
         action_tensor_spec = tensor_spec.from_spec(tf_env.action_spec())
         num_actions = action_tensor_spec.maximum - action_tensor_spec.minimum + 1
 
+        def dense_layer(num_units):
+            return tf.keras.layers.Dense(
+                num_units,
+                activation=tf.keras.activations.relu,
+                kernel_initializer=tf.keras.initializers.VarianceScaling(
+                    scale=2.0, mode='fan_in', distribution='truncated_normal'))
 
 
 
