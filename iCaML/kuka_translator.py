@@ -87,11 +87,11 @@ class KukaTranslator(Translator):
     from tf_agents.specs import tensor_spec
 
     def dense_layer(num_units):
-    return tf.keras.layers.Dense(
-        num_units,
-        activation=tf.keras.activations.relu,
-        kernel_initializer=tf.keras.initializers.VarianceScaling(
-            scale=2.0, mode='fan_in', distribution='truncated_normal'))
+        return tf.keras.layers.Dense(
+            num_units,
+            activation=tf.keras.activations.relu,
+            kernel_initializer=tf.keras.initializers.VarianceScaling(
+                scale=2.0, mode='fan_in', distribution='truncated_normal'))
 
     @saved_plan
     def plan_to_state(self,state1,state2,algo="custom-astar",full_trace = False):
