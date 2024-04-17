@@ -18,20 +18,20 @@ class KukaAgent:
         self.translator = KukaTranslator(
             env, motors, ground_actions=ground_actions, files_dir=files_dir
         )
-        self.random_states_file = f"{files_dir}random_states"
-        self.traces_file = f"{files_dir}test_trace"
-        self.high_actions_dict = f"{files_dir}high_actions_dict"
-        self.high_traces = f"{files_dir}high_traces"
+        self.random_states_file = f"{files_dir}/random_states"
+        self.traces_file = f"{files_dir}/test_trace"
+        self.high_actions_dict = f"{files_dir}/high_actions_dict"
+        self.high_traces = f"{files_dir}/high_traces"
 
         self.random_states = []
         self.avg_trace_length = 0.0
         self.num_traces = 0
         num_random_states = 1
         self.ground_to_relational_map = {}
-        self.query_history_file = f"{files_dir}queries"
+        self.query_history_file = f"{files_dir}/queries"
         self.queries = {}
         self.saved_correct_states = {}
-        self.saved_correct_states_file = f"{files_dir}saved_correct_states"
+        self.saved_correct_states_file = f"{files_dir}/saved_correct_states"
         try:
             with open(self.query_history_file, "rb") as f:
                 self.queries = pickle.load(f)
@@ -94,14 +94,14 @@ class KukaAgent:
         try:
             with open(self.random_states_file, "rb") as f:
                 old_random_states = pickle.load(f)
-        except IOError:
+        except (IOError, OSError):
             old_random_states = []
-
+        
         if save_trace:
             try:
                 with open(self.traces_file, "rb") as f:
                     old_traces = pickle.load(f)
-            except IOError:
+            except (IOError, OSError):
                 old_traces = []
         else:
             old_traces = []

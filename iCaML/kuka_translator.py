@@ -2,6 +2,9 @@ import copy
 import pickle
 
 import numpy as np
+import tf_agents
+from tf_agents.environments import TFPyEnvironment, suite_gym, tf_py_environment
+from tf_agents.networks.q_network import QNetwork
 from kuka_state import AbstractKukaState, KukaState
 from tf_agents.environments.suite_gym import wrap_env
 from utils.helpers import invert_dictionary, state_to_set
@@ -9,9 +12,7 @@ from utils.helpers import invert_dictionary, state_to_set
 from gvg_agents.Search import search
 from gvg_agents.sims.gvg_translator import Translator
 
-
 from tf_agents.agents.dqn import dqn_agent
-from tf_agents.environments.suite_gym import wrap_env
 import tensorflow as tf
 from tf_agents.specs import tensor_spec
 from tf_agents.utils import common
@@ -38,7 +39,7 @@ class KukaTranslator(Translator):
         self.random_states = []
         self.ground_actions = ground_actions
         self.saved_plans = {}
-        self.plan_history_file = f"{files_dir}plans"
+        self.plan_history_file = f"{files_dir}/plans"
         self.environment = environment
         self.motors = motors
 
@@ -88,7 +89,9 @@ class KukaTranslator(Translator):
 
     # https://github.com/bulletphysics/bullet3/blob/master/examples/pybullet/gym/pybullet_envs/bullet/kuka.py
 
-    
+    from tf_agents.environments import utils
+    from tf_agents.environments import suite_gym
+    from tf_agents.environments import tf_py_environment
 
     @saved_plan
     def plan_to_state(self,state1,state2,algo="custom-astar",full_trace = False):
@@ -100,50 +103,13 @@ class KukaTranslator(Translator):
         state2_ = copy.deepcopy(state2)
         total_nodes_expanded = []
         action_list = []
-        tf_env = wrap_env(self.environment)
-        print(type(tf_env))
 
-        # gym_env = suite_gym.load(self.environment)
-        # tf_env = tf_py_environment.TFPyEnvironment(gym_env)
-
-        # build DQN agent here https://www.tensorflow.org/agents
-        """
-        TODO
-        agent = dqn_agent.DqnAgent(
-            train_env.time_step_spec(),
-            train_env.action_spec(),
-            q_network=q_net,
-            optimizer=optimizer,
-            td_errors_loss_fn=common.element_wise_squared_loss,
-            train_step_counter=tf.Variable(0))
-        etc...
-        """
+        py_env = suite_gym.wrap_env(self.environment, auto_reset=False)
+        tf_env = TFPyEnvironment(py_env)
+        
         optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=0.001)
 
-
-        fc_layer_params = (100, 50)
-        action_tensor_spec = tensor_spec.from_spec(tf_env.action_spec())
-        num_actions = action_tensor_spec.maximum - action_tensor_spec.minimum + 1
-
-        def dense_layer(num_units):
-            return tf.keras.layers.Dense(
-                num_units,
-                activation=tf.keras.activations.relu,
-                kernel_initializer=tf.keras.initializers.VarianceScaling(
-                    scale=2.0, mode='fan_in', distribution='truncated_normal'))
-
-
-
-        dense_layers = [dense_layer(num_units) for num_units in fc_layer_params]
-        q_values_layer = tf.keras.layers.Dense(
-            num_actions,
-            activation=None,
-            kernel_initializer=tf.keras.initializers.RandomUniform(
-                minval=-0.03, maxval=0.03),
-            bias_initializer=tf.keras.initializers.Constant(-0.2))
-
-        q_net = sequential.Sequential(dense_layers + [q_values_layer])
-        
+        q_net = QNetwork(tf_env.observation_spec(), tf_env.action_spec())
         train_step_counter = tf.Variable(0)
 
         agent = dqn_agent.DqnAgent(
@@ -155,20 +121,21 @@ class KukaTranslator(Translator):
             train_step_counter=train_step_counter)
         agent.initialize()
 
-
+        # TODO: train the agent
 
         print("Planning")
         if algo == "human":
             # figure out how to get the agent to solve the environment
             done = False
             obs = np.array(self.environment._observation)
+            ts = tf_env.reset()
             while not done:
                 self.environment.render()
+                
+                action = agent.collect_policy.action(ts)
+                ts = tf_env.step(action)
 
-                action = agent.collect_policy.action(time_step)
-                time_step = tf_env.step(action)
-
-                obs, reward, done, info = self.environment.step(action)
+                #obs, reward, done, info = self.environment.step(action)
                 # save the actions the agent takes in action_list
                 action_list.append(action)
         else:

@@ -8,7 +8,8 @@ def main():
     if not os.path.exists("../results"):
         os.mkdir("../results")
 
-    environment = KukaGymEnv(renders=True, isDiscrete=False, maxSteps=10000000)
+    environment = KukaGymEnv(renders=True, isDiscrete=True, maxSteps=10000000)
+    # TODO: can we get these vars to update with the agent?
     motorsIds = []
     # motorsIds.append(environment._p.addUserDebugParameter("posX",0.4,0.75,0.537))
     # motorsIds.append(environment._p.addUserDebugParameter("posY",-.22,.3,0.0))
