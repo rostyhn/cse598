@@ -20,6 +20,8 @@ gym = "0.23.1"
 tensorflow = "^2.16.1"
 tf-keras = "^2.16.0"
 tf-agents-nightly = "^0.20.0.dev20231221"
+ipykernel = "^6.29.4"
+typing-extensions = "4.5.0"
 
 [tool.poetry.group.dev.dependencies]
 pyright = "^1.1.357"
