@@ -1,11 +1,12 @@
 import copy
 import os
 import pickle
+import random
 
 from kuka_translator import KukaTranslator
 
 from iCaML.kuka_state import AbstractKukaState, KukaState
-import random
+import pybullet
 
 class KukaAgent:
     def __init__(self, env, motors, ground_actions=False):
@@ -96,7 +97,7 @@ class KukaAgent:
                 old_random_states = pickle.load(f)
         except (IOError, OSError):
             old_random_states = []
-        
+
         if save_trace:
             try:
                 with open(self.traces_file, "rb") as f:
@@ -117,8 +118,8 @@ class KukaAgent:
             # get intermediate states
             for i in range(n):
                 # environment.reset() always returns a random state
-                self.environment.reset() 
-                s = KukaState(self.environment._p.saveState())
+                self.environment.reset()
+                s = KukaState(pybullet.saveState())
                 st, actions = self.solve_game(s, _actions=True, algo="human")
 
                 if st is not False:
@@ -165,13 +166,13 @@ class KukaAgent:
         return final_random
 
     def get_solved_state(self, state):
-        temp_state = AbstractKukaState() 
+        temp_state = AbstractKukaState()
         temp_state.state["grasped"] = [True]
         return temp_state
 
     def solve_game(self, state, _actions=False, algo="custom-astar"):
         states = []
-        self.environment._p.restoreState(state.state["stateID"])
+        pybullet.restoreState(state.state["stateID"])
         final_state = self.get_solved_state(state)
 
         actions, total_nodes_expanded = self.translator.plan_to_state(
@@ -197,7 +198,6 @@ class KukaAgent:
             return states
         else:
             return states, actions
-
 
     # https://github.com/bulletphysics/bullet3/discussions/3814
     # https://github.com/bulletphysics/bullet3/blob/master/examples/pybullet/gym/pybullet_robots/panda/batchsim3_grasp.py

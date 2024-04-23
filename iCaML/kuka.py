@@ -1,30 +1,15 @@
 import os
 
 from agent import Agent
-from pybullet_envs.bullet.kukaGymEnv import KukaGymEnv
+from pybullet_envs.gym_manipulator_envs import ReacherBulletEnv #MinitaurBallGymEnv #KukaGymEnv  # ReacherBulletEnv
 
 
 def main():
     if not os.path.exists("../results"):
         os.mkdir("../results")
 
-    environment = KukaGymEnv(renders=True, isDiscrete=True, maxSteps=10000000)
-    # TODO: can we get these vars to update with the agent?
+    environment = ReacherBulletEnv(render=True) #KukaGymEnv(renders=True)
     motorsIds = []
-    # motorsIds.append(environment._p.addUserDebugParameter("posX",0.4,0.75,0.537))
-    # motorsIds.append(environment._p.addUserDebugParameter("posY",-.22,.3,0.0))
-    # motorsIds.append(environment._p.addUserDebugParameter("posZ",0.1,1,0.2))
-    # motorsIds.append(environment._p.addUserDebugParameter("yaw",-3.14,3.14,0))
-    # motorsIds.append(environment._p.addUserDebugParameter("fingerAngle",0,0.3,.3))
-
-    dv = 0.01
-    motorsIds.append(environment._p.addUserDebugParameter("posX", -dv, dv, 0))
-    motorsIds.append(environment._p.addUserDebugParameter("posY", -dv, dv, 0))
-    motorsIds.append(environment._p.addUserDebugParameter("posZ", -dv, dv, 0))
-    motorsIds.append(environment._p.addUserDebugParameter("yaw", -dv, dv, 0))
-    motorsIds.append(
-        environment._p.addUserDebugParameter("fingerAngle", 0, 0.3, 0.3)
-    )
     a = Agent("kuka", environment, motorsIds)
 
     """

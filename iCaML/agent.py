@@ -17,7 +17,7 @@ class Agent:
     def __init__(self, domain, env, motors):
         if is_simulator_agent:
             self.agent_type = "simulator"
-            from kuka_agent import KukaAgent 
+            from kuka_agent import KukaAgent
             self.agent_model = KukaAgent(env, motors)
 
     def run_query(self, query, pal_tuple_dict, partial_check=False):
