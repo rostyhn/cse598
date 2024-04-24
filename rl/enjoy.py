@@ -10,9 +10,9 @@ def main():
     chk = load_from_hub(repo_id="BanUrsus/tqc-PandaPickAndPlace-v3", filename="tqc-PandaPickAndPlace-v3.zip")
     stats = load_from_hub(repo_id="BanUrsus/tqc-PandaPickAndPlace-v3", filename="vec_normalize.pkl")
    
-    env = gym.make('PandaPickAndPlace-v3', render_mode="human", autoreset=False) 
-    env = DummyVecEnv([lambda: env])
+    env = gym.make('PandaPickAndPlace-v3', render_mode="human", autoreset=False)
     
+    env = DummyVecEnv([lambda: env])
     env = VecNormalize.load(stats, env)
     env.training = False
     env.norm_reward = False

@@ -2,25 +2,16 @@ import copy
 import pickle
 
 import numpy as np
-import tensorflow as tf
-import tf_agents
+import pybullet
+
 from kuka_state import AbstractKukaState, KukaState
-from tf_agents.agents.dqn import dqn_agent
-from tf_agents.environments import (
-    TFPyEnvironment,
-    suite_gym,
-    tf_py_environment,
-)
-from tf_agents.environments.suite_gym import wrap_env
-from tf_agents.networks import sequential
-from tf_agents.networks.q_network import QNetwork
-from tf_agents.specs import tensor_spec
-from tf_agents.utils import common
 from utils.helpers import invert_dictionary, state_to_set
 
 from gvg_agents.Search import search
 from gvg_agents.sims.gvg_translator import Translator
-
+from sb3_contrib import TQC
+from huggingface_sb3 import load_from_hub
+from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
 
 def saved_plan(function):
     def _saved_plan(self, state1, state2, algo, full_trace=False):
@@ -63,8 +54,9 @@ class KukaTranslator(Translator):
         given state and action, apply action virtually and get resulting state
         assume only legal actions applied, including no effect
         """
-        self.environment._p.restoreState(state.state["stateID"])
-        state, reward, done, info = self.environment.step2(action)
+        pybullet.restoreState(state.state["stateID"])
+        # need to convert actions correctly
+        state, reward, done, info = self.environment.step(action)
         s_id = self.environment._p.saveState()
         return KukaState(s_id)
 
@@ -100,8 +92,6 @@ class KukaTranslator(Translator):
 
     # https://github.com/bulletphysics/bullet3/blob/master/examples/pybullet/gym/pybullet_envs/bullet/kuka.py
 
-    from tf_agents.environments import suite_gym, tf_py_environment, utils
-
     @saved_plan
     def plan_to_state(
         self, state1, state2, algo="custom-astar", full_trace=False
@@ -115,44 +105,25 @@ class KukaTranslator(Translator):
         total_nodes_expanded = []
         action_list = []
 
-        py_env = TFPyEnvironment(suite_gym.wrap_env(self.environment, auto_reset=False))
+        chk = load_from_hub(repo_id="BanUrsus/tqc-PandaPickAndPlace-v3", filename="tqc-PandaPickAndPlace-v3.zip")
+        stats = load_from_hub(repo_id="BanUrsus/tqc-PandaPickAndPlace-v3", filename="vec_normalize.pkl")
+   
+        env = DummyVecEnv([lambda: self.environment])
+        env = VecNormalize.load(stats, env)
+        env.training = False
+        env.norm_reward = False
 
-        saved_policy = tf.saved_model.load("./policy/")
-        pss = saved_policy.get_initial_state(batch_size=1)
-
-        def toTimeStep(ts):
-            return tf_agents.trajectories.TimeStep(
-                tf.convert_to_tensor(
-                    ts.step_type, dtype=tf.int32, name="step_type"
-                ),
-                tf.convert_to_tensor(
-                    ts.reward, dtype=tf.float32, name="reward"
-                ),
-                tf.convert_to_tensor(
-                    ts.discount, dtype=tf.float32, name="discount"
-                ),
-                tf.convert_to_tensor(
-                    ts.observation, dtype=tf.float32, name="observations"
-                ),
-            )
-
-        # TODO: train the agent
+        model = TQC.load(chk,env) 
         print("Planning")
         if algo == "human":
-            # figure out how to get the agent to solve the environment
             done = False
-            ts = toTimeStep(py_env.reset())
-
+            obs = env.reset() 
             while not done:
-                # self.environment.render()
-
-                ps = saved_policy.action(ts, pss)
-                pss = ps.state
-                ts = toTimeStep(py_env.step(ps.action))
-
-                # obs, reward, done, info = self.environment.step(action)
-                # save the actions the agent takes in action_list
-                action_list.append(ps.action)
+                action, _states = model.predict(obs, deterministic=True)
+                obs, reward, dones, info = env.step(action)
+                done = dones[0]
+                print(action)
+                action_list.append(action)
         else:
             action_list, total_nodes_expanded = search(
                 state1_, state2_, self, algo

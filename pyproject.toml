@@ -20,12 +20,15 @@ stable_baselines3 = {extras=["extra"], version="2.3.1"}
 sb3_contrib = "2.3.0"
 rl_zoo3 = "2.3.0"
 panda-gym = "3.0.7"
+huggingface-sb3 = "^3.0"
 
 [tool.poetry.group.dev.dependencies]
 pyright = "^1.1.357"
 black = "^24.3.0"
 isort = "^5.13.2"
 flake8 = "^7.0.0"
+jupyter = "^1.0.0"
+ipython = "^8.23.0"
 
 [tool.black]
 line-length = 79

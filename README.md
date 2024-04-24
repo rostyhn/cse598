@@ -9,6 +9,9 @@ cd iCaML
 python3 kuka.py
 ```
 Try deleting the results folder if the sim opens but immediately crashes.
+
+The `rl` folder contains our experiments in trying to figure out the way stable-baselines works, as well as our experiments in building the abstract state space.
+
 The following is the original readme text.
 ___
 

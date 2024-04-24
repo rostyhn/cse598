@@ -1,16 +1,19 @@
 import os
 
-from agent import Agent
-from pybullet_envs.gym_manipulator_envs import ReacherBulletEnv #MinitaurBallGymEnv #KukaGymEnv  # ReacherBulletEnv
+import gymnasium as gym
+import panda_gym
 
+from agent import Agent
 
 def main():
     if not os.path.exists("../results"):
         os.mkdir("../results")
 
-    environment = ReacherBulletEnv(render=True) #KukaGymEnv(renders=True)
+    #environment = ReacherBulletEnv(render=True) #KukaGymEnv(renders=True)
+    env = gym.make('PandaPickAndPlace-v3', render_mode="human", autoreset=False) 
+    
     motorsIds = []
-    a = Agent("kuka", environment, motorsIds)
+    a = Agent("kuka", env, motorsIds)
 
     """
     done = False
