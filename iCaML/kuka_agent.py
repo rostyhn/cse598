@@ -172,10 +172,9 @@ class KukaAgent:
 
         self.actions = {}
         self.action_objects = {}
-        print(self.translator.high_actions)
         for action, s in self.translator.high_actions.items():
             temp_action = Action(action, s[0], s[1])
-            #print(action, s[0].rev_objects, s[1].rev_objects)
+            # print(action, s[0].rev_objects, s[1].rev_objects)
             temp_action.assign_predicate_types()
 
             if temp_action not in self.action_objects.values():
@@ -186,7 +185,7 @@ class KukaAgent:
 
     def show_actions(self, action=None):
         sim = self.environment["sim"]
-        for k, v in self.translator.high_actions.items():
+        for k, v in self.actions.items():
             s1, s2 = v
             print(f"------action_name:{str(k)}--------")
             print("before")

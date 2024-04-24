@@ -56,7 +56,7 @@ class AbstractKukaState(State):
         dq_rank = [0, 1, 2, 3]
         dq_rank.sort(key=lambda i: dq[i])
 
-        quadrant = dq.index(min(dq)) + 1
+        quadrant = dq_rank[0] + 1
         tstate[f"in_quad-{quadrant}"] = [()]
 
         # "effector_pos": ee,
@@ -160,7 +160,7 @@ class KukaState:
             # might need to make each joint angle an individual thing
             # again, list of tuples weirdness
             "joint_values": [
-                (robot.get_joint_angle(j),) for j in robot.joint_indices
+                (sim.get_joint_angle("panda", j),) for j in robot.joint_indices
             ],
         }
         self.g_score = 0  # for search
