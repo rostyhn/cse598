@@ -1,4 +1,5 @@
 import os
+import pprint
 import time
 
 import gymnasium as gym
@@ -6,9 +7,21 @@ import numpy as np
 import panda_gym  # NOTE: keep the import, it registers the environment for the gym library
 from agent import Agent
 from huggingface_sb3 import load_from_hub
+from interrogation import AgentInterrogation
+from lattice import Model
 from panda_gym.utils import distance
 from sb3_contrib import TQC
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+
+
+def modify_types(types):
+    new_types = {}
+    if len(types.keys()) == 1 and list(types.keys())[0] == "object":
+        for o in types["object"]:
+            new_types[o] = []
+
+    print(new_types)
+    return new_types
 
 
 def main():
@@ -24,7 +37,9 @@ def main():
         filename="vec_normalize.pkl",
     )
 
-    env = gym.make("PandaPickAndPlace-v3", autoreset=False)
+    env = gym.make(
+        "PandaPickAndPlace-v3", render_mode="human", autoreset=False
+    )
 
     sim = env.sim
     robot = env.robot
@@ -39,8 +54,6 @@ def main():
 
     a = Agent("kuka", model, {"robot": robot, "task": task, "sim": sim})
 
-    return
-
     (
         action_parameters,
         pred_type_mapping,
@@ -50,7 +63,27 @@ def main():
         old_types,
         init_state,
         domain_name,
-    ) = agent.agent_model.generate_ds()
+    ) = a.agent_model.generate_ds()
+
+    """
+    this lets you see what the agent has learned
+    check out kuka_state.py as well as the notebook in RL
+    to see how I can access the pybullet environment
+    """
+    a.agent_model.show_actions()
+
+    """ next steps:
+        1. figure out better predicates for both state spaces
+        2. generate states more "randomly" - currently, the states
+        that are being fed to the planner are initial states for the 
+        env. would be good to have it try and solve a few where the 
+        robot arms start in some random (must be valid) position
+        3. figure out what the get_ground_state function must do
+    """
+
+    """
+    this runs without crashing, but is totally pointless without
+    having correct capabilities being learned
 
     abstract_predicates = {}
     types = modify_types(old_types)
@@ -59,27 +92,26 @@ def main():
     abstract_model = Model(abstract_predicates, abstract_model_actions)
 
     # comment to include static predicates
-    abs_preds_test, abs_actions_test, _ = agent.agent_model.bootstrap_model()
+    abs_preds_test, abs_actions_test, _ = a.agent_model.bootstrap_model()
     abstract_model.predicates = abs_preds_test
     abstract_model.actions = abs_actions_test
 
-    if not check_results:
-        iaa_main = AgentInterrogation(
-            agent,
-            abstract_model,
-            objects,
-            domain_name,
-            abstract_predicates,
-            pred_type_mapping,
-            action_parameters,
-            types,
-            load_old_q=True,
-        )
+    iaa_main = AgentInterrogation(
+        a,
+        abstract_model,
+        objects,
+        domain_name,
+        abstract_predicates,
+        pred_type_mapping,
+        action_parameters,
+        types,
+        load_old_q=True,
+    )
 
-        query_count, running_time, data_dict, pal_tuple_count, valid_models = (
-            iaa_main.agent_interrogation_algo()
-        )
-        agent.agent_model.show_actions()
+    query_count, running_time, data_dict, pal_tuple_count, valid_models = (
+        iaa_main.agent_interrogation_algo()
+    )
+    """
 
 
 if __name__ == "__main__":

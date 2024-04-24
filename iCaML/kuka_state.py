@@ -31,6 +31,10 @@ class AbstractKukaState(State):
         is_closed = fw < 0.01
         tstate = {}
 
+        # super weird, but if a predicate is true without parameters,
+        # its just an empty tuple
+        # and yes, all the values are lists
+
         if is_succ:
             tstate["finished"] = [()]
         if is_grasping:
@@ -66,6 +70,7 @@ class AbstractKukaState(State):
             self.state[k] = v
         self.rev_objects = {}  #
         self.objects = {}
+        self.pyBulletStateID = sim.save_state()
 
     def __hash__(self):
         return hash(str(self))
@@ -146,11 +151,11 @@ class KukaState:
             "goal_position": goal,
             "block_position": block,
             # might need to make each joint angle an individual thing
+            # again, list of tuples weirdness
             "joint_values": [
                 (robot.get_joint_angle(j),) for j in robot.joint_indices
             ],
         }
-        print(self.state)
         self.g_score = 0  # for search
         self.best_path = None  # for search
         self.rev_objects = {}

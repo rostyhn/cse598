@@ -1,6 +1,8 @@
 import copy
 import pickle
 
+from config import *
+
 import numpy as np
 import pybullet
 from huggingface_sb3 import load_from_hub
@@ -20,6 +22,7 @@ def saved_plan(function):
             + "|||"
             + str("||".join(sorted(state_to_set(state2.state))))
         )
+        # doing is None causes an error...
         if self.saved_plans.get(pkey) != None:
             return self.saved_plans.get(pkey)
         a, b = function(self, state1, state2, algo, full_trace)
@@ -138,7 +141,7 @@ class KukaTranslator(Translator):
             action_list, total_nodes_expanded = search(
                 state1_, state2_, self, algo
             )
-        
+
         return action_list, total_nodes_expanded
 
     def execute_from_ID(self, abs_state, abs_action):
@@ -172,23 +175,15 @@ class KukaTranslator(Translator):
         """
         abstract_model = {}
         action_parameters = {}
-        abstract_predicates = {}
         types = {}
         objects = {}
         predTypeMapping = {}
         agent_model = {}
-        init_state = None
         for action, states in self.high_actions.items():
             for state in states:
                 gstate = self.get_ground_state(state)
                 for pred in gstate.state:
                     predTypeMapping[pred] = []
-
-        # for state in self.random_states:
-        #     gstate = self.get_ground_state(self.abstract_state(state))
-        #     for pred in gstate.state:
-        #         if pred not in predTypeMapping:
-        #             predTypeMapping[pred]=[]
 
         for action in self.high_actions:
             abstract_model[action] = {}
@@ -205,7 +200,7 @@ class KukaTranslator(Translator):
             objects,
             types,
             None,
-            "cookmepasta_GVG",
+            "kuka",
         )
 
     def refine_abstract_state(self, abstract_state_):
@@ -313,8 +308,10 @@ class KukaTranslator(Translator):
         [rstate.state.pop(k_, None) for k_ in temp_k]
         return rstate
 
+    # TODO: figure out what ground state is
     def get_ground_state(self, state):
-        gstate = AbstractZeldaState()
+        gstate = copy.deepcopy(state)
+        """
         gstate.state = {}
         for k, v in state.state.items():
             if v != None:
@@ -323,6 +320,7 @@ class KukaTranslator(Translator):
                     gstate.state[k + "-" + "-".join(list(_v))] = [()]
         gstate.objects = {}
         gstate.rev_objects = {}
+        """
         return gstate
 
     def iaa_query(self, abs_state, plan):
