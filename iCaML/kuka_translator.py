@@ -1,10 +1,9 @@
 import copy
 import pickle
 
-from config import *
-
 import numpy as np
 import pybullet
+from config import *
 from huggingface_sb3 import load_from_hub
 from kuka_state import AbstractKukaState, KukaState
 from sb3_contrib import TQC
@@ -58,26 +57,20 @@ class KukaTranslator(Translator):
         """
         self.reset_sim_to_state(state)
         # need to convert actions correctly
-
         obs, reward, done, info = self.model.env.step(action)
         return KukaState(self.environment)
 
     def get_successor(self, state):
         self.reset_sim_to_state(state)
-        obs, reward, done, info = self.model.env.step([0, 0, 0, 0])
+        obs, reward, done, info = self.model.env.step(np.array([0, 0, 0, 0]))
         action, _states = self.model.predict(obs, deterministic=True)
+        # actually update the env
+        self.model.env.step(action)
         return action, KukaState(self.environment)
 
     def is_goal_state(self, current_state, goal_state):
         # all orientations should be corrent goal state
-        dcurrent_state = copy.deepcopy(current_state)
-        dcurrent_state.state["player_orientation"] = None
-        dgoal_state = copy.deepcopy(goal_state)
-        dgoal_state.state["player_orientation"] = None
-        if dcurrent_state == dgoal_state:
-            return True
-        else:
-            return False
+        return current_state.state["finished"]
 
     # https://docs.google.com/document/d/10sXEhzFRSnvFcl3XxNGhnD4N2SedqwdAvK3dsihxVUA/edit#heading=h.2ye70wns7io3
 
@@ -108,7 +101,7 @@ class KukaTranslator(Translator):
         )
         robot.set_joint_angles(jv)
 
-    @saved_plan
+    # @saved_plan no need to load in from pickle
     def plan_to_state(
         self, state1, state2, algo="custom-astar", full_trace=False
     ):
@@ -124,19 +117,18 @@ class KukaTranslator(Translator):
         # a bit confusing, but the model.env is the env that the model can
         # actually generate actions for
         env = self.model.env
-
-        print("Planning")
+        self.reset_sim_to_state(state1_)
         if algo == "human":
             done = False
 
-            self.reset_sim_to_state(state1_)
             obs, reward, dones, info = env.step([[0, 0, 0, 0]])
-
+            total_nodes_expanded.append(state1_)
             while not done:
                 action, _states = self.model.predict(obs, deterministic=True)
                 obs, reward, dones, info = env.step(action)
                 done = dones[0]
                 action_list.append(action)
+
         else:
             action_list, total_nodes_expanded = search(
                 state1_, state2_, self, algo

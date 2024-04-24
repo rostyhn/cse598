@@ -7,10 +7,11 @@ from panda_gym.utils import distance
 from utils.helpers import state_to_set
 
 # partitions on the table
-q1 = np.array([1.1 / 4 - 0.3, 0.7 / 4, 0.4])
-q2 = np.array([1.1 / 4 - 0.3, 3 * (0.7 / 4), 0.4])
-q3 = np.array([(1.1 / 4) * 3 - 0.3, 0.7 / 4, 0.4])
-q4 = np.array([(1.1 / 4) * 3 - 0.3, 3 * (0.7 / 4), 0.4])
+
+q1 = np.array([0.15, 0.15, 0.0])
+q2 = np.array([0.15, -0.15, 0.0])
+q3 = np.array([-0.15, 0.15, 0.0])
+q4 = np.array([-0.15, -0.15, 0.0])
 
 
 class AbstractKukaState(State):
@@ -25,9 +26,11 @@ class AbstractKukaState(State):
         block = task.get_achieved_goal()
         goal = np.array(sim.get_base_position("target"))
 
+        distance_to_block = distance(ee, block)
+
         self.state = defaultdict(None)
         is_succ = task.is_success(block, goal)
-        is_grasping = fw > 0.02 and fw < 0.04
+        is_grasping = (fw > 0.02 and fw < 0.04) and distance_to_block < 0.01
         is_closed = fw < 0.01
         tstate = {}
 
@@ -50,7 +53,11 @@ class AbstractKukaState(State):
             distance(ee, q4),
         ]
 
-        tstate["nearest_quadrant"] = [(dq.index(min(dq)) + 1,)]
+        dq_rank = [0, 1, 2, 3]
+        dq_rank.sort(key=lambda i: dq[i])
+
+        quadrant = dq.index(min(dq)) + 1
+        tstate[f"in_quad-{quadrant}"] = [()]
 
         # "effector_pos": ee,
         # "finger_width": fw,
