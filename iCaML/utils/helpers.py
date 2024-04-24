@@ -2,9 +2,10 @@
 # encoding: utf-8
 
 import copy
+from collections import defaultdict
 
 from config import *
-from collections import defaultdict
+
 
 def state_to_set(state):
     state_set = []
@@ -17,7 +18,7 @@ def state_to_set(state):
                     t_init_state += "|" + str(items)
                 else:
                     for _i in items:
-                        t_init_state += "|" + _i
+                        t_init_state += f"|{_i}"
                 state_set.append(t_init_state)
         else:
             state_set.append(p)
@@ -27,12 +28,14 @@ def state_to_set(state):
 def set_to_state(state_set):
     state = {}
     for p in state_set:
-        pred_params = (p.split("|")[1:])
+        pred_params = p.split("|")[1:]
         pred_name = p.split("|")[0]
         if pred_name in state.keys():
             state[pred_name].append(tuple(pred_params))
         else:
-            state[pred_name] = [tuple(pred_params), ]
+            state[pred_name] = [
+                tuple(pred_params),
+            ]
     return state
 
 
@@ -56,7 +59,7 @@ def map_pred_action_param(pred, action):
     :return: pred in format ontable|0
     """
     action_name = action.split("|")[0]
-    action_params = action.split('|')[1:]
+    action_params = action.split("|")[1:]
     pred_params = pred.split("|")[1:]
     pred_name = pred.split("|")[0]
     for param in pred_params:
@@ -79,7 +82,7 @@ def instantiate_pred_with_action(pred, action):
     :param action: Action in format pickup|c
     :return: pred in format ontable|c
     """
-    action_params = action.split('|')[1:]
+    action_params = action.split("|")[1:]
     pred_params = pred.split("|")[1:]
     pred_name = pred.split("|")[0]
     for param in pred_params:
@@ -103,7 +106,10 @@ def get_model_difference(model1, model2, pal_tuple_dict):
             for loc in [Location.PRECOND, Location.EFFECTS]:
                 if not pal_tuple_dict[(action, pred, loc)]:
                     diff += 1
-                elif model1.actions[action][pred][loc - 1] != model2.actions[action][pred][loc - 1]:
+                elif (
+                    model1.actions[action][pred][loc - 1]
+                    != model2.actions[action][pred][loc - 1]
+                ):
                     diff += 1
                     print("Incorrect PALM: ", action, pred, loc)
                     print("In Agent: ", model1.actions[action][pred][loc - 1])
@@ -120,8 +126,9 @@ def get_next_predicate(all_predicates, abs_predicates):
     else:
         return new_preds.pop()
 
+
 def invert_dictionary(idict):
     odict = defaultdict(list)
-    for k,v in idict.items():
+    for k, v in idict.items():
         odict[v].append(k)
     return odict

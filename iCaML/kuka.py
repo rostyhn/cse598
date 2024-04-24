@@ -1,32 +1,44 @@
 import os
+import time
 
 import gymnasium as gym
-import panda_gym
-
+import numpy as np
+import panda_gym  # NOTE: keep the import, it registers the environment for the gym library
 from agent import Agent
+from huggingface_sb3 import load_from_hub
+from panda_gym.utils import distance
+from sb3_contrib import TQC
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+
 
 def main():
     if not os.path.exists("../results"):
         os.mkdir("../results")
 
-    #environment = ReacherBulletEnv(render=True) #KukaGymEnv(renders=True)
-    env = gym.make('PandaPickAndPlace-v3', render_mode="human", autoreset=False) 
-    
-    motorsIds = []
-    a = Agent("kuka", env, motorsIds)
+    chk = load_from_hub(
+        repo_id="BanUrsus/tqc-PandaPickAndPlace-v3",
+        filename="tqc-PandaPickAndPlace-v3.zip",
+    )
+    stats = load_from_hub(
+        repo_id="BanUrsus/tqc-PandaPickAndPlace-v3",
+        filename="vec_normalize.pkl",
+    )
 
-    """
-    done = False
-    while (not done):
+    env = gym.make("PandaPickAndPlace-v3", autoreset=False)
 
-      action = []
-      for motorId in motorsIds:
-        action.append(environment._p.readUserDebugParameter(motorId))
+    sim = env.sim
+    robot = env.robot
+    task = env.task
 
-      state, reward, done, info = environment.step2(action)
-      obs = environment.getExtendedObservation()
-      print(obs, info)
-    """
+    env = DummyVecEnv([lambda: env])
+    env = VecNormalize.load(stats, env)
+    env.training = False
+    env.norm_reward = False
+
+    model = TQC.load(chk, env)
+
+    a = Agent("kuka", model, {"robot": robot, "task": task, "sim": sim})
+
     return
 
     (

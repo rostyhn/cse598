@@ -3,15 +3,15 @@ import pickle
 
 import numpy as np
 import pybullet
-
+from huggingface_sb3 import load_from_hub
 from kuka_state import AbstractKukaState, KukaState
+from sb3_contrib import TQC
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from utils.helpers import invert_dictionary, state_to_set
 
 from gvg_agents.Search import search
 from gvg_agents.sims.gvg_translator import Translator
-from sb3_contrib import TQC
-from huggingface_sb3 import load_from_hub
-from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
+
 
 def saved_plan(function):
     def _saved_plan(self, state1, state2, algo, full_trace=False):
@@ -32,9 +32,7 @@ def saved_plan(function):
 
 
 class KukaTranslator(Translator):
-    def __init__(
-        self, environment, motors, ground_actions=False, files_dir=""
-    ):
+    def __init__(self, model, env, ground_actions=False, files_dir=""):
         super().__init__(AbstractKukaState)
         self.files = files_dir
         self.high_actions = {}
@@ -42,8 +40,8 @@ class KukaTranslator(Translator):
         self.ground_actions = ground_actions
         self.saved_plans = {}
         self.plan_history_file = f"{files_dir}/plans"
-        self.environment = environment
-        self.motors = motors
+        self.environment = env
+        self.model = model
 
     def update_high_actions(self, actions):
         # just to make sure this is called atleast once
@@ -51,29 +49,21 @@ class KukaTranslator(Translator):
 
     def get_next_state(self, state, action):
         """
+        might not be needed, or might have to generate a random action... might make sense
         given state and action, apply action virtually and get resulting state
         assume only legal actions applied, including no effect
         """
-        pybullet.restoreState(state.state["stateID"])
+        self.reset_sim_to_state(state)
         # need to convert actions correctly
-        state, reward, done, info = self.environment.step(action)
-        s_id = self.environment._p.saveState()
-        return KukaState(s_id)
+
+        obs, reward, done, info = self.model.env.step(action)
+        return KukaState(self.environment)
 
     def get_successor(self, state):
-        action_dict = {
-            "ACTION_DOWN": [],
-            "ACTION_RIGHT": [],
-            "ACTION_LEFT": [],
-            "ACTION_USE": [],
-        }
-        for action in action_dict:
-            next_state = self.get_next_state(state, action)
-            if next_state == state:
-                action_dict[action] = [0, state]
-            else:
-                action_dict[action] = [1, next_state]
-        return action_dict
+        self.reset_sim_to_state(state)
+        obs, reward, done, info = self.model.env.step([0, 0, 0, 0])
+        action, _states = self.model.predict(obs, deterministic=True)
+        return action, KukaState(self.environment)
 
     def is_goal_state(self, current_state, goal_state):
         # all orientations should be corrent goal state
@@ -92,6 +82,29 @@ class KukaTranslator(Translator):
 
     # https://github.com/bulletphysics/bullet3/blob/master/examples/pybullet/gym/pybullet_envs/bullet/kuka.py
 
+    def reset_sim_to_state(self, state):
+
+        # might need to include more info here, joint angles etc
+
+        sim = self.environment["sim"]
+        robot = self.environment["robot"]
+
+        sim.goal = state.state["goal_position"]
+        sim.object_position = state.state["block_position"]
+        jv = [j[0] for j in state.state["joint_values"]]
+        # reset sim to match state
+        sim.set_base_pose(
+            "target",
+            state.state["goal_position"],
+            np.array([0.0, 0.0, 0.0, 1.0]),
+        )
+        sim.set_base_pose(
+            "object",
+            state.state["block_position"],
+            np.array([0.0, 0.0, 0.0, 1.0]),
+        )
+        robot.set_joint_angles(jv)
+
     @saved_plan
     def plan_to_state(
         self, state1, state2, algo="custom-astar", full_trace=False
@@ -105,29 +118,27 @@ class KukaTranslator(Translator):
         total_nodes_expanded = []
         action_list = []
 
-        chk = load_from_hub(repo_id="BanUrsus/tqc-PandaPickAndPlace-v3", filename="tqc-PandaPickAndPlace-v3.zip")
-        stats = load_from_hub(repo_id="BanUrsus/tqc-PandaPickAndPlace-v3", filename="vec_normalize.pkl")
-   
-        env = DummyVecEnv([lambda: self.environment])
-        env = VecNormalize.load(stats, env)
-        env.training = False
-        env.norm_reward = False
+        # a bit confusing, but the model.env is the env that the model can
+        # actually generate actions for
+        env = self.model.env
 
-        model = TQC.load(chk,env) 
         print("Planning")
         if algo == "human":
             done = False
-            obs = env.reset() 
+
+            self.reset_sim_to_state(state1_)
+            obs, reward, dones, info = env.step([[0, 0, 0, 0]])
+
             while not done:
-                action, _states = model.predict(obs, deterministic=True)
+                action, _states = self.model.predict(obs, deterministic=True)
                 obs, reward, dones, info = env.step(action)
                 done = dones[0]
-                print(action)
                 action_list.append(action)
         else:
             action_list, total_nodes_expanded = search(
                 state1_, state2_, self, algo
             )
+        
         return action_list, total_nodes_expanded
 
     def execute_from_ID(self, abs_state, abs_action):
@@ -152,8 +163,8 @@ class KukaTranslator(Translator):
 
     # convert low-level state into abstract high-level one
     def abstract_state(self, low_state):
-        abs_state = AbstractKukaState()
-        return abs_state
+        self.reset_sim_to_state(low_state)
+        return AbstractKukaState(self.environment)
 
     def generate_ds(self):
         """

@@ -1,17 +1,70 @@
 import pickle
 from collections import defaultdict
 
+import numpy as np
 from lattice import State
+from panda_gym.utils import distance
 from utils.helpers import state_to_set
+
+# partitions on the table
+q1 = np.array([1.1 / 4 - 0.3, 0.7 / 4, 0.4])
+q2 = np.array([1.1 / 4 - 0.3, 3 * (0.7 / 4), 0.4])
+q3 = np.array([(1.1 / 4) * 3 - 0.3, 0.7 / 4, 0.4])
+q4 = np.array([(1.1 / 4) * 3 - 0.3, 3 * (0.7 / 4), 0.4])
 
 
 class AbstractKukaState(State):
-    def __init__(self):
+    def __init__(self, env):
+
+        sim = env["sim"]
+        robot = env["robot"]
+        task = env["task"]
+
+        ee = robot.get_ee_position()
+        fw = robot.get_fingers_width()
+        block = task.get_achieved_goal()
+        goal = np.array(sim.get_base_position("target"))
+
         self.state = defaultdict(None)
-        tstate = {"grasping": []}
+        is_succ = task.is_success(block, goal)
+        is_grasping = fw > 0.02 and fw < 0.04
+        is_closed = fw < 0.01
+        tstate = {}
+
+        if is_succ:
+            tstate["finished"] = [()]
+        if is_grasping:
+            tstate["is_grasping"] = [()]
+        if is_closed:
+            tstate["is_closed"] = [()]
+
+        # get nearest quadrant
+        dq = [
+            distance(ee, q1),
+            distance(ee, q2),
+            distance(ee, q3),
+            distance(ee, q4),
+        ]
+
+        tstate["nearest_quadrant"] = [(dq.index(min(dq)) + 1,)]
+
+        # "effector_pos": ee,
+        # "finger_width": fw,
+        # "d_q1": [(distance(ee, q1),)],
+        # "d_q2": [(distance(ee, q2),)],
+        # "d_q3": [(distance(ee, q3),)],
+        # "d_q4": [(distance(ee, q4),)],
+        # "distance_to_block": [(distance(ee, block),)],
+
+        # "block_to_goal": [(distance(block, goal),)],
+        # you add this as a key iff its true
+        # "is_grasping": [(fw > 0.02 and fw < 0.04,)],
+        # "is_closed": [(fw < 0.01)],
+        # "finished": (task.is_success(block, goal),),
+
         for k, v in tstate.items():
             self.state[k] = v
-        self.rev_objects = {}  # locations(cells),monster,player,door,key
+        self.rev_objects = {}  #
         self.objects = {}
 
     def __hash__(self):
@@ -21,7 +74,7 @@ class AbstractKukaState(State):
         """
         TODO:
             Check for equivalency, not equality
-            But is that required?
+            when dealing with float values this becomes important!
         """
         for pred in self.state:
             if pred in abstract2.state:
@@ -80,10 +133,27 @@ class KukaState:
     def __hash__(self):
         return hash(str(self))
 
-    def __init__(self, stateID):
-        self.state = {"stateID": stateID}
+    def __init__(self, env):
+        sim = env["sim"]
+        task = env["task"]
+        robot = env["robot"]
+
+        block = task.get_achieved_goal()
+        goal = np.array(sim.get_base_position("target"))
+
+        self.state = {
+            "finished": task.is_success(block, goal),
+            "goal_position": goal,
+            "block_position": block,
+            # might need to make each joint angle an individual thing
+            "joint_values": [
+                (robot.get_joint_angle(j),) for j in robot.joint_indices
+            ],
+        }
+        print(self.state)
         self.g_score = 0  # for search
         self.best_path = None  # for search
+        self.rev_objects = {}
 
 
 def save_query(function):

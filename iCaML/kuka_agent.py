@@ -3,21 +3,25 @@ import os
 import pickle
 import random
 
+import numpy as np
+import pybullet
 from kuka_translator import KukaTranslator
 
+from iCaML.action import Action
 from iCaML.kuka_state import AbstractKukaState, KukaState
-import pybullet
+
 
 class KukaAgent:
-    def __init__(self, env, motors, ground_actions=False):
+    def __init__(self, model, env, ground_actions=False):
+        self.model = model
         self.environment = env
-        self.motors = motors
         self.ground_actions = ground_actions
         files_dir = os.path.abspath("../results/kuka/")
         if not os.path.exists(files_dir):
             os.mkdir(files_dir)
+
         self.translator = KukaTranslator(
-            env, motors, ground_actions=ground_actions, files_dir=files_dir
+            model, env, ground_actions=ground_actions, files_dir=files_dir
         )
         self.random_states_file = f"{files_dir}/random_states"
         self.traces_file = f"{files_dir}/test_trace"
@@ -39,26 +43,36 @@ class KukaAgent:
         except IOError:
             print("No old queries to load")
 
-        try:
-            with open(self.random_states_file, "rb") as f:
-                temp_states = pickle.load(f)
-        except IOError:
-            temp_states = self.generate_random_states(
-                n=num_random_states,
-                algo="human",
-                abstract=True,
-                random=True,
-                save_trace=True,
-            )
+        temp_states = self.generate_random_states(
+            n=num_random_states,
+            algo="human",
+            abstract=True,
+            random=True,
+            save_trace=True,
+        )
+
+        print(temp_states)
         ###generate additional states for data
-        """
-        n_extra = 0
+
+        # now we generate high-level actions...
         self.load_actions()
         self.combine_actions()
-        temp_states_extra = self.generate_random_states(n = n_extra, r = r,c = c,min_walls=min_walls,add_intermediate=True,abstract = True,random = True, save_trace = False)
         self.show_actions()
+
+        #if ground_actions:
+        #    for state in temp_states:
+         #       temp_gstate = self.translator.get_ground_state(state)
+          #      self.random_states.append(temp_gstate)
+           #     self.ground_to_relational_map[temp_gstate] = state
+        #else:
+         #   self.random_states = temp_states
+
+        """
+        n_extra = 0
+        temp_states_extra = self.generate_random_states(n = n_extra, r = r,c = c,min_walls=min_walls,add_intermediate=True,abstract = True,random = True, save_trace = False)
         with open(files_dir+"temp_states_extra","wb") as f:
             pickle.dump(temp_states_extra,f)
+
         temp_states.extend(temp_states_extra)
         if ground_actions:
             for state in temp_states:
@@ -81,7 +95,90 @@ class KukaAgent:
             [st.state.pop(k_,None) for k_ in temp_k]
         """
 
-    # TODO: build random state generator
+    def load_actions(self):
+        # generates high level actions
+        file = self.traces_file
+        with open(file, "rb") as f:
+            test_trace = pickle.load(f)
+
+        new_test_traces = []
+        for i, run in enumerate(test_trace):
+            sas_trace = []
+            # first_state = run[0][0]
+            # objects = first_state.rev_objects
+            # monster_mapping = first_state.monster_mapping
+            self.avg_trace_length += len(run)
+            for j, (sa1, sa2) in enumerate(zip(run, run[1:])):
+                state1, action1 = sa1
+                state2, action2 = sa2
+                sas_trace.append([state1, action1, state2])
+                new_test_traces.append(sas_trace)
+
+        high_level_traces = []
+        high_level_actions = {}
+
+        action_number = 0
+        for trace in new_test_traces:
+            abs_trace = []
+            for s1, a, s2 in trace:
+                abs_s1 = self.translator.abstract_state(s1)
+                abs_s2 = self.translator.abstract_state(s2)
+
+                if abs_s1 != abs_s2:
+                    # create a new action
+                    action_id = "a" + str(action_number)  # str(uuid.uuid1())
+                    action_number += 1
+                    high_level_actions[action_id] = [
+                        abs_s1,
+                        abs_s2,
+                    ]
+                    abs_trace.append((abs_s1, action_id, abs_s2))
+            high_level_traces.append(abs_trace)
+            self.avg_trace_length += len(abs_trace)
+
+        self.num_traces = len(high_level_traces)
+        self.avg_trace_length = 0.0
+        self.avg_trace_length /= self.num_traces
+
+        with open(self.high_actions_dict, "wb") as f:
+            pickle.dump(high_level_actions, f)
+
+        with open(self.high_traces, "wb") as f:
+            pickle.dump(high_level_traces, f)
+
+        self.translator.update_high_actions(high_level_actions)
+        print(len(high_level_traces))
+        print(len(high_level_actions))
+        print("Saved High-level actions as traces")
+
+    def combine_actions(self):
+        if len(self.translator.high_actions) == 0:
+            print("Actions dict not saved yet!")
+            return False
+
+        self.actions = {}
+        self.action_objects = {}
+        print(self.translator.high_actions)
+        for action, s in self.translator.high_actions.items():
+            print("action!")
+            temp_action = Action(action, s[0], s[1])
+            print(action, s[0], s[1])
+            temp_action.assign_predicate_types()
+
+            if temp_action not in self.action_objects.values():
+                self.actions[action] = s
+                self.action_objects[action] = temp_action
+                # self.actions[-1].assign_predicate_types()
+            else:
+                print("Pruned!" + str(action))
+            # print("")
+
+    def show_actions(self, action=None):
+        for k, v in self.translator.high_actions.items():
+            print(f"------action_name:{str(k)}--------")
+            # need to write the refining function in order to see the actions generated
+            print(v)
+
     def generate_random_states(
         self,
         n=5,
@@ -92,20 +189,9 @@ class KukaAgent:
         add_intermediate=True,
         algo="custom_astar",
     ):
-        try:
-            with open(self.random_states_file, "rb") as f:
-                old_random_states = pickle.load(f)
-        except (IOError, OSError):
-            old_random_states = []
 
-        if save_trace:
-            try:
-                with open(self.traces_file, "rb") as f:
-                    old_traces = pickle.load(f)
-            except (IOError, OSError):
-                old_traces = []
-        else:
-            old_traces = []
+        old_random_states = []
+        old_traces = []
 
         new_traces = []
         initial_random_states = []
@@ -118,8 +204,8 @@ class KukaAgent:
             # get intermediate states
             for i in range(n):
                 # environment.reset() always returns a random state
-                self.environment.reset()
-                s = KukaState(pybullet.saveState())
+                self.model.env.reset()
+                s = KukaState(self.environment)
                 st, actions = self.solve_game(s, _actions=True, algo="human")
 
                 if st is not False:
@@ -166,18 +252,20 @@ class KukaAgent:
         return final_random
 
     def get_solved_state(self, state):
-        temp_state = AbstractKukaState()
-        temp_state.state["grasped"] = [True]
+        # low level solved state
+        temp_state = KukaState(self.environment)
+        temp_state.state["finished"] = np.array(True)
+        temp_state.state["block_position"] = state.state["goal_position"]
         return temp_state
 
     def solve_game(self, state, _actions=False, algo="custom-astar"):
         states = []
-        pybullet.restoreState(state.state["stateID"])
         final_state = self.get_solved_state(state)
-
+        print(state, final_state)
         actions, total_nodes_expanded = self.translator.plan_to_state(
             state, final_state, algo
         )
+
         states.append(state)
         cstate = copy.deepcopy(state)
         if actions is None:
@@ -205,13 +293,10 @@ class KukaAgent:
         max_len = 50
         trace = []
         for _ in range(max_len):
-            succ = self.translator.get_successor(state)
-            choice = random.choice(list(succ.keys()))
-            if state.state["escaped"][0]:
-                trace.append((succ[choice][1], "ACTION_ESCAPE"))
-                state = succ[choice][1]
+            if state.state["finished"][0]:
                 break
-            else:
-                trace.append((succ[choice][1], choice))
-                state = succ[choice][1]
+            action, succ = self.translator.get_successor(state)
+            trace.append((succ, action))
+            state = succ
+
         return trace

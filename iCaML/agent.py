@@ -4,21 +4,22 @@
 import copy
 import importlib
 
-#import cv2
-from PIL import Image
-
 from config import *
-from query import ExecutePlan
+from kuka_agent import KukaAgent
 from lattice import Model
-#fromsim import StateHelper
+
+# import cv2
+from PIL import Image
+from query import ExecutePlan
+
+# fromsim import StateHelper
 from utils import state_to_set
 
+
 class Agent:
-    def __init__(self, domain, env, motors):
-        if is_simulator_agent:
-            self.agent_type = "simulator"
-            from kuka_agent import KukaAgent
-            self.agent_model = KukaAgent(env, motors)
+    def __init__(self, domain, model, env):
+        self.agent_type = "simulator"
+        self.agent_model = KukaAgent(model, env)
 
     def run_query(self, query, pal_tuple_dict, partial_check=False):
         """
@@ -29,8 +30,12 @@ class Agent:
         :return:
         """
         if self.agent_type == "symbolic":
-            plan = ExecutePlan(self.agent_model, query['init_state'].state, query['plan'])
-            is_executable_agent, possible_state, failure_index = plan.execute_plan(pal_tuple_dict)
+            plan = ExecutePlan(
+                self.agent_model, query["init_state"].state, query["plan"]
+            )
+            is_executable_agent, possible_state, failure_index = (
+                plan.execute_plan(pal_tuple_dict)
+            )
             return is_executable_agent, failure_index, possible_state
 
         # elif self.agent_type == "simulator":
@@ -48,26 +53,36 @@ class Agent:
         #             return False, plan_length, state_to_set(query['init_state'].state)
         #     else:
         #         return False, -1, state_to_set(query['init_state'].state)
-        
+
         elif self.agent_type == "simulator":
             if self.agent_model.ground_actions:
-                init_state = self.agent_model.get_relational_state(query['init_state'])
-                query['init_state'] = init_state
-            if self.agent_model.validate_state(query['init_state']):
+                init_state = self.agent_model.get_relational_state(
+                    query["init_state"]
+                )
+                query["init_state"] = init_state
+            if self.agent_model.validate_state(query["init_state"]):
                 temp_query = copy.deepcopy(query)
-                success, plan_length, state = self.agent_model.run_query(temp_query)
+                success, plan_length, state = self.agent_model.run_query(
+                    temp_query
+                )
                 if success:
                     return success, plan_length, state_to_set(state.state)
                 else:
-                    return False, plan_length, state_to_set(query['init_state'].state)
+                    return (
+                        False,
+                        plan_length,
+                        state_to_set(query["init_state"].state),
+                    )
             else:
                 print("Invalid query init state!")
-                return False, -1, state_to_set(query['init_state'].state)
-    
-    def get_correct_state(self,fixed_preds,cstate):
+                return False, -1, state_to_set(query["init_state"].state)
+
+    def get_correct_state(self, fixed_preds, cstate):
         temp_state = copy.deepcopy(cstate)
-        return self.agent_model.get_correct_state(fixed_preds,temp_state)
-    
-    def fix_state(self,fixed_preds,cstate,removed,predTypeMapping):
+        return self.agent_model.get_correct_state(fixed_preds, temp_state)
+
+    def fix_state(self, fixed_preds, cstate, removed, predTypeMapping):
         temp_state = copy.deepcopy(cstate)
-        return self.agent_model.fix_state(fixed_preds,cstate,removed,predTypeMapping)
+        return self.agent_model.fix_state(
+            fixed_preds, cstate, removed, predTypeMapping
+        )
