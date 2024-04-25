@@ -200,15 +200,10 @@ class KukaState:
         block = task.get_achieved_goal()
         goal = np.array(sim.get_base_position("target"))
 
-        ee = robot.get_ee_position()
-        fw = robot.get_fingers_width()
-
         self.state = {
             "finished": task.is_success(block, goal),
             "goal_position": goal,
             "block_position": block,
-            "effector_pos": ee,
-            "finger_width": fw,
             # might need to make each joint angle an individual thing
             # again, list of tuples weirdness
             "joint_values": [

@@ -32,7 +32,7 @@ class KukaAgent:
         self.random_states = []
         self.avg_trace_length = 0.0
         self.num_traces = 1
-        num_random_states = 5
+        num_random_states = 10
         self.ground_to_relational_map = {}
         self.query_history_file = f"{files_dir}/queries"
         self.queries = {}
@@ -323,7 +323,7 @@ class KukaAgent:
             return states, actions
 
     def get_random_trace(self, state):
-        max_len = 50
+        max_len = 500
         trace = []
         for _ in range(max_len):
             action, succ = self.translator.get_successor(state)

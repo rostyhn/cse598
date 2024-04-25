@@ -56,16 +56,46 @@ class KukaTranslator(Translator):
         assume only legal actions applied, including no effect
         """
         self.reset_sim_to_state(state)
-        # need to convert actions correctly
-        obs, reward, done, info = self.model.env.step(action)
+        robot = self.environment["robot"]
+        sim = self.environment["sim"]
+
+        obs, reward, done, info = self.model.env.step(np.array([0, 0, 0, 0]))
+
+        action, _states = self.model.predict(obs, deterministic=True)
+
+        robot.set_action(action[0])
+        sim.step()
+
         return KukaState(self.environment)
+
+    def get_observation(self):
+        robot = self.environment["robot"]
+        task = self.environment["task"]
+
+        robot_obs = robot.get_obs().astype(np.float32)  # robot state
+        task_obs = task.get_obs().astype(
+            np.float32
+        )  # object position, velocity, etc...
+        observation = np.concatenate([robot_obs, task_obs])
+        achieved_goal = task.get_achieved_goal().astype(np.float32)
+
+        return {
+            "observation": observation,
+            "achieved_goal": achieved_goal,
+            "desired_goal": task.get_goal().astype(np.float32),
+        }
 
     def get_successor(self, state):
         self.reset_sim_to_state(state)
+        robot = self.environment["robot"]
+        sim = self.environment["sim"]
         obs, reward, done, info = self.model.env.step(np.array([0, 0, 0, 0]))
+
         action, _states = self.model.predict(obs, deterministic=True)
-        # actually update the env
-        self.model.env.step(action)
+
+        robot.set_action(action[0])
+        sim.step()
+
         return action, KukaState(self.environment)
 
     def is_goal_state(self, current_state, goal_state):
@@ -120,7 +150,6 @@ class KukaTranslator(Translator):
         self.reset_sim_to_state(state1_)
         if algo == "human":
             done = False
-
             obs, reward, dones, info = env.step([[0, 0, 0, 0]])
             while not done:
                 action, _states = self.model.predict(obs, deterministic=True)

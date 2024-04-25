@@ -44,6 +44,7 @@ def main():
     sim = env.sim
     robot = env.robot
     task = env.task
+    gym_env = env
 
     env = DummyVecEnv([lambda: env])
     env = VecNormalize.load(stats, env)
@@ -52,7 +53,11 @@ def main():
 
     model = TQC.load(chk, env)
 
-    a = Agent("kuka", model, {"robot": robot, "task": task, "sim": sim})
+    a = Agent(
+        "kuka",
+        model,
+        {"robot": robot, "task": task, "sim": sim, "gym_env": gym_env},
+    )
 
     (
         action_parameters,
