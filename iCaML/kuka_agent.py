@@ -32,7 +32,7 @@ class KukaAgent:
         self.random_states = []
         self.avg_trace_length = 0.0
         self.num_traces = 1
-        num_random_states = 10
+        num_random_states = 5
         self.ground_to_relational_map = {}
         self.query_history_file = f"{files_dir}/queries"
         self.queries = {}
@@ -187,6 +187,7 @@ class KukaAgent:
         sim = self.environment["sim"]
         for k, v in self.actions.items():
             s1, s2 = v
+            print(s1, s2)
             print(f"------action_name:{str(k)}--------")
             print("before")
             sim.restore_state(s1.pyBulletStateID)
@@ -320,7 +321,7 @@ class KukaAgent:
             return states, actions
 
     def get_random_trace(self, state):
-        max_len = 5
+        max_len = 50
         trace = []
         for _ in range(max_len):
             if state.state["finished"]:

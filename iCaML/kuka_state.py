@@ -14,6 +14,30 @@ q3 = np.array([-0.15, 0.15, 0.0])
 q4 = np.array([-0.15, -0.15, 0.0])
 
 
+def is_grasped(sim, fw):
+    robot_idx = sim._bodies_idx["panda"]
+    block_idx = sim._bodies_idx["object"]
+
+    # 9, 10 are left and right fingers
+    # could do both to be absolutely sure
+    # check length of tuple, if it contains info, means we have a hit
+    return (
+        len(
+            sim.physics_client.getClosestPoints(
+                block_idx, robot_idx, distance=0, linkIndexB=9
+            )
+        )
+        > 0
+        and fw > 0.01
+        and len(
+            sim.physics_client.getClosestPoints(
+                block_idx, robot_idx, distance=0, linkIndexB=10
+            )
+        )
+        > 0
+    )
+
+
 class AbstractKukaState(State):
     def __init__(self, env):
 
@@ -30,7 +54,8 @@ class AbstractKukaState(State):
 
         self.state = defaultdict(None)
         is_succ = task.is_success(block, goal)
-        is_grasping = (fw > 0.02 and fw < 0.04) and distance_to_block < 0.01
+        is_grasping = is_grasped(sim, fw)
+        is_moving = abs(np.sum(sim.get_base_velocity("object"))) > 0
         is_closed = fw < 0.01
         tstate = {}
 
@@ -44,13 +69,15 @@ class AbstractKukaState(State):
             tstate["is_grasping"] = [()]
         if is_closed:
             tstate["is_closed"] = [()]
+        if is_moving:
+            tstate["is_moving"] = [()]
 
         # get nearest quadrant
         dq = [
-            distance(ee, q1),
-            distance(ee, q2),
-            distance(ee, q3),
-            distance(ee, q4),
+            distance(block, q1),
+            distance(block, q2),
+            distance(block, q3),
+            distance(block, q4),
         ]
 
         dq_rank = [0, 1, 2, 3]
@@ -153,10 +180,15 @@ class KukaState:
         block = task.get_achieved_goal()
         goal = np.array(sim.get_base_position("target"))
 
+        ee = robot.get_ee_position()
+        fw = robot.get_fingers_width()
+
         self.state = {
             "finished": task.is_success(block, goal),
             "goal_position": goal,
             "block_position": block,
+            "effector_pos": ee,
+            "finger_width": fw,
             # might need to make each joint angle an individual thing
             # again, list of tuples weirdness
             "joint_values": [
