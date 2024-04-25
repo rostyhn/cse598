@@ -122,7 +122,6 @@ class KukaTranslator(Translator):
             done = False
 
             obs, reward, dones, info = env.step([[0, 0, 0, 0]])
-            total_nodes_expanded.append(state1_)
             while not done:
                 action, _states = self.model.predict(obs, deterministic=True)
                 obs, reward, dones, info = env.step(action)

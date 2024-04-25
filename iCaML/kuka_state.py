@@ -45,7 +45,7 @@ def block_on_table(sim):
     return (
         len(
             sim.physics_client.getClosestPoints(
-                block_idx, table_idx, distance=0
+                block_idx, table_idx, distance=0.01
             )
         )
         > 0

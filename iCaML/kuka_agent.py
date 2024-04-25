@@ -314,7 +314,9 @@ class KukaAgent:
             tstate = self.translator.get_next_state(cstate, a)
             cstate = tstate
             states.append(tstate)
-
+        
+        # hack to mark last state as finished to get around env
+        states[-1].state["finished"] = True
         if not _actions:
             return states
         else:

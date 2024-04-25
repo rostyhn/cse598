@@ -72,15 +72,6 @@ def main():
     """
     a.agent_model.show_actions()
 
-    """ next steps:
-        1. figure out better predicates for both state spaces
-        2. generate states more "randomly" - currently, the states
-        that are being fed to the planner are initial states for the 
-        env. would be good to have it try and solve a few where the 
-        robot arms start in some random (must be valid) position
-        3. figure out what the get_ground_state function must do
-    """
-
     """
     abstract_predicates = {}
     types = modify_types(old_types)
