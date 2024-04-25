@@ -140,8 +140,7 @@ class KukaTranslator(Translator):
         try:
             abs_before, abs_after = self.high_actions[abs_action]
             # checking if just state equality is enough
-            # if abs_before.state == abs_state.state and abs_before.rev_objects == abs_state.objects:
-            # if abs_before!=abs_state: #Might have to change this to a more sophisticated comparison
+            # need to be equal?
             if abs_before.state == abs_state.state:
                 return True, abs_after
             else:

@@ -324,12 +324,11 @@ class KukaAgent:
         max_len = 50
         trace = []
         for _ in range(max_len):
-            if state.state["finished"]:
-                break
             action, succ = self.translator.get_successor(state)
             trace.append((succ, action))
             state = succ
-
+            if succ.state["finished"]:
+                break
         return trace
 
     # no clue what this does but it works...

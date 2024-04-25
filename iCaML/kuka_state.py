@@ -38,6 +38,20 @@ def is_grasped(sim, fw):
     )
 
 
+def block_on_table(sim):
+    table_idx = sim._bodies_idx["table"]
+    block_idx = sim._bodies_idx["object"]
+
+    return (
+        len(
+            sim.physics_client.getClosestPoints(
+                block_idx, table_idx, distance=0
+            )
+        )
+        > 0
+    )
+
+
 class AbstractKukaState(State):
     def __init__(self, env):
 
@@ -71,8 +85,13 @@ class AbstractKukaState(State):
             tstate["is_closed"] = [()]
         if is_moving:
             tstate["is_moving"] = [()]
+        if block_on_table(sim):
+            tstate["block_on_table"] = [()]
+        # if is_moving and block_on_table(sim):
+        #    tstate["sliding"] = [()]
 
         # get nearest quadrant
+        """
         dq = [
             distance(block, q1),
             distance(block, q2),
@@ -85,6 +104,7 @@ class AbstractKukaState(State):
 
         quadrant = dq_rank[0] + 1
         tstate[f"in_quad-{quadrant}"] = [()]
+        """
 
         # "effector_pos": ee,
         # "finger_width": fw,

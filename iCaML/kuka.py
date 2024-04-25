@@ -82,9 +82,6 @@ def main():
     """
 
     """
-    this runs without crashing, but is totally pointless without
-    having correct capabilities being learned
-
     abstract_predicates = {}
     types = modify_types(old_types)
 
