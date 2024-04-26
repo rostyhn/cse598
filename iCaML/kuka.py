@@ -75,9 +75,8 @@ def main():
     check out kuka_state.py as well as the notebook in RL
     to see how I can access the pybullet environment
     """
-    a.agent_model.show_actions()
+    # a.agent_model.show_actions()
 
-    """
     abstract_predicates = {}
     types = modify_types(old_types)
 
@@ -104,7 +103,6 @@ def main():
     query_count, running_time, data_dict, pal_tuple_count, valid_models = (
         iaa_main.agent_interrogation_algo()
     )
-    """
 
 
 if __name__ == "__main__":

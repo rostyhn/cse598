@@ -52,12 +52,28 @@ def block_on_table(sim):
     )
 
 
+def nearest_quadrant(pos):
+    dq = [
+        distance(pos, q1),
+        distance(pos, q2),
+        distance(pos, q3),
+        distance(pos, q4),
+    ]
+
+    dq_rank = [0, 1, 2, 3]
+    dq_rank.sort(key=lambda i: dq[i])
+
+    return dq_rank[0] + 1
+
+
 class AbstractKukaState(State):
-    def __init__(self, env):
+    def __init__(self, env, ls):
 
         sim = env["sim"]
         robot = env["robot"]
         task = env["task"]
+
+        block_idx = sim._bodies_idx["object"]
 
         ee = robot.get_ee_position()
         fw = robot.get_fingers_width()
@@ -69,14 +85,17 @@ class AbstractKukaState(State):
         self.state = defaultdict(None)
         is_succ = task.is_success(block, goal)
         is_grasping = is_grasped(sim, fw)
-        is_moving = abs(np.sum(sim.get_base_velocity("object"))) > 0
+        velocity = ls.state[
+            "block_velocity"
+        ]  # sim.physics_client.getBaseVelocity(block_idx)
+
+        is_moving = np.sum(velocity) > 0.1
         is_closed = fw < 0.01
         tstate = {}
 
         # super weird, but if a predicate is true without parameters,
         # its just an empty tuple
         # and yes, all the values are lists
-
         if is_succ:
             tstate["finished"] = [()]
         if is_grasping:
@@ -89,22 +108,6 @@ class AbstractKukaState(State):
             tstate["block_on_table"] = [()]
         # if is_moving and block_on_table(sim):
         #    tstate["sliding"] = [()]
-
-        # get nearest quadrant
-        """
-        dq = [
-            distance(block, q1),
-            distance(block, q2),
-            distance(block, q3),
-            distance(block, q4),
-        ]
-
-        dq_rank = [0, 1, 2, 3]
-        dq_rank.sort(key=lambda i: dq[i])
-
-        quadrant = dq_rank[0] + 1
-        tstate[f"in_quad-{quadrant}"] = [()]
-        """
 
         # "effector_pos": ee,
         # "finger_width": fw,
@@ -124,7 +127,7 @@ class AbstractKukaState(State):
             self.state[k] = v
         self.rev_objects = {}  #
         self.objects = {}
-        self.pyBulletStateID = sim.save_state()
+        self.pyBulletStateID = env["gym_env"].save_state()  # sim.save_state()
 
     def __hash__(self):
         return hash(str(self))
@@ -209,10 +212,14 @@ class KukaState:
             "joint_values": [
                 (sim.get_joint_angle("panda", j),) for j in robot.joint_indices
             ],
+            "block_velocity": sim.get_base_velocity("object"),
+            "block-quadrant": nearest_quadrant(block),
+            "goal-quadrant": nearest_quadrant(goal),
         }
         self.g_score = 0  # for search
         self.best_path = None  # for search
         self.rev_objects = {}
+        self.stateID = env["gym_env"].save_state()
 
 
 def save_query(function):

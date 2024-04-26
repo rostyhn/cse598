@@ -1,4 +1,5 @@
 import copy
+import pdb
 import pickle
 
 import numpy as np
@@ -59,8 +60,9 @@ class KukaTranslator(Translator):
         robot = self.environment["robot"]
         sim = self.environment["sim"]
 
+        # if we could get the normalized observation to work, it would be even better
         obs, reward, done, info = self.model.env.step(np.array([0, 0, 0, 0]))
-
+        # obs = self.model.env.normalize_obs(self.get_observation())
         action, _states = self.model.predict(obs, deterministic=True)
 
         robot.set_action(action[0])
@@ -87,10 +89,12 @@ class KukaTranslator(Translator):
 
     def get_successor(self, state):
         self.reset_sim_to_state(state)
+
         robot = self.environment["robot"]
         sim = self.environment["sim"]
+        # if we could get the observations without stepping, restoreState would work!
+        # obs = self.model.env.normalize_obs(self.get_observation())
         obs, reward, done, info = self.model.env.step(np.array([0, 0, 0, 0]))
-
         action, _states = self.model.predict(obs, deterministic=True)
 
         robot.set_action(action[0])
@@ -109,9 +113,7 @@ class KukaTranslator(Translator):
     # https://github.com/bulletphysics/bullet3/blob/master/examples/pybullet/gym/pybullet_envs/bullet/kuka.py
 
     def reset_sim_to_state(self, state):
-
         # might need to include more info here, joint angles etc
-
         sim = self.environment["sim"]
         robot = self.environment["robot"]
 
@@ -130,6 +132,9 @@ class KukaTranslator(Translator):
             np.array([0.0, 0.0, 0.0, 1.0]),
         )
         robot.set_joint_angles(jv)
+        # restore doesn't work that nicely
+        # sim.restore_state(state.stateID)
+        # self.environment["gym_env"].restore_state(state.stateID)
 
     # @saved_plan no need to load in from pickle
     def plan_to_state(
@@ -147,20 +152,24 @@ class KukaTranslator(Translator):
         # a bit confusing, but the model.env is the env that the model can
         # actually generate actions for
         env = self.model.env
-        self.reset_sim_to_state(state1_)
+        import time
+
+        # self.reset_sim_to_state(state1_)
         if algo == "human":
             done = False
             obs, reward, dones, info = env.step([[0, 0, 0, 0]])
             while not done:
                 action, _states = self.model.predict(obs, deterministic=True)
+                time.sleep(0.5)
                 obs, reward, dones, info = env.step(action)
                 done = dones[0]
                 action_list.append(action)
-
         else:
             action_list, total_nodes_expanded = search(
                 state1_, state2_, self, algo
             )
+        print("done")
+        time.sleep(1)
 
         return action_list, total_nodes_expanded
 
@@ -186,7 +195,7 @@ class KukaTranslator(Translator):
     # convert low-level state into abstract high-level one
     def abstract_state(self, low_state):
         self.reset_sim_to_state(low_state)
-        return AbstractKukaState(self.environment)
+        return AbstractKukaState(self.environment, low_state)
 
     def generate_ds(self):
         """

@@ -6,24 +6,28 @@ import importlib
 import itertools
 import pickle
 import pprint
-import time
-import subprocess
-from collections import Counter, OrderedDict
 import random
+import subprocess
+import time
+from collections import Counter, OrderedDict
 from itertools import combinations
 
 from config import *
+from lattice import Lattice, LatticeNode, State
 from query import ExecutePlan
-from lattice import LatticeNode, Lattice, State
 from utils import *
-#import IPython
+
+# import IPython
+
 
 def check_saved(function):
-    def _check_saved(self,po_query_module, model_1, model_2, init_state, next_pal_tuple):
+    def _check_saved(
+        self, po_query_module, model_1, model_2, init_state, next_pal_tuple
+    ):
 
-        plan_raw = function(self,po_query_module, model_1, model_2, init_state, next_pal_tuple)    
-
-
+        plan_raw = function(
+            self, po_query_module, model_1, model_2, init_state, next_pal_tuple
+        )
 
 
 class AgentInterrogation:
@@ -43,8 +47,18 @@ class AgentInterrogation:
 
     """
 
-    def __init__(self, agent, abstract_model, objects, domain_name,
-                 abstract_predicates, pred_type_mapping, action_parameters, types,load_old_q):
+    def __init__(
+        self,
+        agent,
+        abstract_model,
+        objects,
+        domain_name,
+        abstract_predicates,
+        pred_type_mapping,
+        action_parameters,
+        types,
+        load_old_q,
+    ):
         self.agent = agent
         self.abstract_model = abstract_model
         self.objects = objects
@@ -55,7 +69,7 @@ class AgentInterrogation:
         self.types = types
         self.location = Location.ALL
         self.difficult_pal_tuple = []
-        #self.queries = {}
+        # self.queries = {}
         self.pal_tuples_fixed = 0
         self.failed_plans = []
         self.agent_query_total = 0
@@ -71,8 +85,10 @@ class AgentInterrogation:
         self.mod_pred_count = 0
         self.start_time = time.time()
         self.data_dict = OrderedDict()
-        self.random_state_file = RANDOM_STATE_FOLDER + "random_" + domain_name + ".pkl"
-        self.save_q_file = QUERY_SAVE_FILE+domain_name+'/old_plans'
+        self.random_state_file = (
+            RANDOM_STATE_FOLDER + "random_" + domain_name + ".pkl"
+        )
+        self.save_q_file = QUERY_SAVE_FILE + domain_name + "/old_plans"
         # self.queries = {}
         # try:
         #     if load_old_q:
@@ -82,17 +98,26 @@ class AgentInterrogation:
         #     print("Old query file not found!")
         #     pass
 
-        
-
     def init_result_file(self):
-        f = open(final_result_dir + self.domain_name + "-" + final_result_prefix + "-" + self.timestr + ".csv", "w")
-        f.write("domain_name, #action, #predicate, #modified_predicates, #pal_tuples_fixed, #queries_total, "
-                "#agent_failed, #repeated_queries, #unique_queries, #model_similarity, #time_elapsed, pal_tuple\n")
+        f = open(
+            final_result_dir
+            + self.domain_name
+            + "-"
+            + final_result_prefix
+            + "-"
+            + self.timestr
+            + ".csv",
+            "w",
+        )
+        f.write(
+            "domain_name, #action, #predicate, #modified_predicates, #pal_tuples_fixed, #queries_total, "
+            "#agent_failed, #repeated_queries, #unique_queries, #model_similarity, #time_elapsed, pal_tuple\n"
+        )
         f.close()
 
     def fix_pal_tuple(self, pal_tuple, valid_models):
         valid_models = [i for i in valid_models if not i.discarded]
-        assert (len(valid_models) <= 3)
+        assert len(valid_models) <= 3
         print("Valid Model Len: ", len(valid_models))
         print("Fixed pal tuple: ", pal_tuple)
         print(valid_models[0].actions[pal_tuple[0]][pal_tuple[1]])
@@ -103,19 +128,48 @@ class AgentInterrogation:
             if not is_simulator_agent:
                 all_diff = []
                 for m in valid_models:
-                    model_diff = get_model_difference(self.agent.agent_model, m, self.pal_tuple_dict)
+                    model_diff = get_model_difference(
+                        self.agent.agent_model, m, self.pal_tuple_dict
+                    )
                     print("Model Similarity: ", 1 - model_diff)
                     all_diff.append(model_diff)
                     mod_sim = 1 - max(all_diff)
-                f = open(final_result_dir + self.domain_name + "-" + final_result_prefix + "-" + self.timestr + ".csv",
-                         "a")
-                f.write(",".join([self.domain_name, str(self.action_count), str(self.predicate_count),
-                                  str(self.mod_pred_count), str(self.pal_tuples_fixed), str(self.agent_query_total),
-                                  str(self.agent_cant_execute), str(self.query_old), str(self.query_new), str(mod_sim),
-                                  str(time.time() - self.start_time), str(pal_tuple), "\n"]))
+                f = open(
+                    final_result_dir
+                    + self.domain_name
+                    + "-"
+                    + final_result_prefix
+                    + "-"
+                    + self.timestr
+                    + ".csv",
+                    "a",
+                )
+                f.write(
+                    ",".join(
+                        [
+                            self.domain_name,
+                            str(self.action_count),
+                            str(self.predicate_count),
+                            str(self.mod_pred_count),
+                            str(self.pal_tuples_fixed),
+                            str(self.agent_query_total),
+                            str(self.agent_cant_execute),
+                            str(self.query_old),
+                            str(self.query_new),
+                            str(mod_sim),
+                            str(time.time() - self.start_time),
+                            str(pal_tuple),
+                            "\n",
+                        ]
+                    )
+                )
                 f.close()
 
-                self.data_dict[self.pal_tuples_fixed] = [self.query_new, mod_sim, time.time() - self.start_time]
+                self.data_dict[self.pal_tuples_fixed] = [
+                    self.query_new,
+                    mod_sim,
+                    time.time() - self.start_time,
+                ]
         return
 
     # def save_q(self):
@@ -125,22 +179,29 @@ class AgentInterrogation:
 
     def ask_query(self, init_state, plan, partial_init_check=False):
         query = dict()
-        query['init_state'] = copy.deepcopy(State(init_state, self.objects))
-        #query['init_state'] = copy.deepcopy(init_state)
-        query['plan'] = copy.deepcopy(plan)
+        query["init_state"] = copy.deepcopy(State(init_state, self.objects))
+        # query['init_state'] = copy.deepcopy(init_state)
+        query["plan"] = copy.deepcopy(plan)
         self.agent_query_total += 1
 
-        key = str("||".join(sorted(state_to_set(query['init_state'].state)))) + "|||" + str("||".join(query['plan']))
-        #if key not in self.queries:
-        self.query_new += 1 
-        is_executable_agent, failure_index, possible_state = self.agent.run_query(query, self.pal_tuple_dict,
-                                                                                    partial_init_check)
-        #self.queries[key] = [is_executable_agent, failure_index, possible_state]
+        key = (
+            str("||".join(sorted(state_to_set(query["init_state"].state))))
+            + "|||"
+            + str("||".join(query["plan"]))
+        )
+        # if key not in self.queries:
+        self.query_new += 1
+        is_executable_agent, failure_index, possible_state = (
+            self.agent.run_query(
+                query, self.pal_tuple_dict, partial_init_check
+            )
+        )
+        # self.queries[key] = [is_executable_agent, failure_index, possible_state]
         if failure_index == -1:
             self.invalid_init_state += 1
         if not is_executable_agent:
             self.agent_cant_execute += 1
-        #self.save_q() #saving queries to file so I don't have to recompute plans
+        # self.save_q() #saving queries to file so I don't have to recompute plans
         # else:
         #     self.query_old += 1
         #     return self.queries[key]
@@ -148,7 +209,9 @@ class AgentInterrogation:
         return is_executable_agent, failure_index, possible_state
 
     @staticmethod
-    def reject_action_pred_combo(action, pred, rejected_literal, position, action_pred_comb_dict):
+    def reject_action_pred_combo(
+        action, pred, rejected_literal, position, action_pred_comb_dict
+    ):
         """
         :param action:
         :param pred:
@@ -160,7 +223,9 @@ class AgentInterrogation:
 
         # position = 0 for precondition, 1 for effect
         if action not in action_pred_comb_dict.keys():
-            action_pred_comb_dict[action] = {pred: [[rejected_literal, position]]}
+            action_pred_comb_dict[action] = {
+                pred: [[rejected_literal, position]]
+            }
         else:
             rejected_preds = action_pred_comb_dict[action]
             if pred not in rejected_preds.keys():
@@ -194,7 +259,9 @@ class AgentInterrogation:
                     except IndexError:
                         return False
 
-    def propagate_refinement_in_models(self, valid_models, issue, old_refinement, location=Location.PRECOND):
+    def propagate_refinement_in_models(
+        self, valid_models, issue, old_refinement, location=Location.PRECOND
+    ):
         """
         :param valid_models:
         :param issue:
@@ -210,9 +277,24 @@ class AgentInterrogation:
 
         for m in valid_models:
             if old_refinement[1] in (m.actions[old_refinement[0]]).keys():
-                if m.actions[old_refinement[0]][old_refinement[1]] == [Literal.ABS, Literal.ABS] and \
-                        not self.pal_tuple_dict[(old_refinement[0], old_refinement[1], Location.PRECOND)] and \
-                        not self.pal_tuple_dict[(old_refinement[0], old_refinement[1], Location.EFFECTS)]:
+                if (
+                    m.actions[old_refinement[0]][old_refinement[1]]
+                    == [Literal.ABS, Literal.ABS]
+                    and not self.pal_tuple_dict[
+                        (
+                            old_refinement[0],
+                            old_refinement[1],
+                            Location.PRECOND,
+                        )
+                    ]
+                    and not self.pal_tuple_dict[
+                        (
+                            old_refinement[0],
+                            old_refinement[1],
+                            Location.EFFECTS,
+                        )
+                    ]
+                ):
                     m.actions[old_refinement[0]].pop(old_refinement[1], None)
 
         valid_models = list(set(valid_models))
@@ -221,8 +303,10 @@ class AgentInterrogation:
             if pred not in m.predicates.keys():
                 m.predicates[pred] = 0
             if pred in m.actions[action]:
-                if m.actions[action][pred][location - 1] != mode and \
-                        m.actions[action][pred][location - 1] != Literal.ABS:
+                if (
+                    m.actions[action][pred][location - 1] != mode
+                    and m.actions[action][pred][location - 1] != Literal.ABS
+                ):
                     m.discarded = True
                 else:
                     m.actions[action][pred][location - 1] = mode
@@ -242,12 +326,12 @@ class AgentInterrogation:
         :param location:
         :return:
         """
-        #return preconditions first
-        for key,val in self.pal_tuple_dict.items():
-            if not val and (predicate=="" or predicate == key[1]):
+        # return preconditions first
+        for key, val in self.pal_tuple_dict.items():
+            if not val and (predicate == "" or predicate == key[1]):
                 if key[2] == 1:
                     return key
-        
+
         # for key, val in self.pal_tuple_dict.items():
         #     # Match action, predicate and refinement passed into the parameters and return if
         #     # refinement not already done for those params
@@ -256,7 +340,7 @@ class AgentInterrogation:
         #         return key
         #     if not val and (action == "" or action == key[0]) and (predicate == "" or predicate == key[1]) and \
         #             (location == 2) and key not in self.difficult_pal_tuple:
-        #         return key 
+        #         return key
         # for key, val in self.pal_tuple_dict.items():
         #     # Match action, predicate and refinement passed into the parameters and return if
         #     # refinement not already done for those params
@@ -265,7 +349,9 @@ class AgentInterrogation:
         #         return key
         temp = self.difficult_pal_tuple[:]
         for pal in temp:
-            if not self.pal_tuple_dict[pal] and (predicate == "" or predicate == pal[1]):
+            if not self.pal_tuple_dict[pal] and (
+                predicate == "" or predicate == pal[1]
+            ):
                 self.difficult_pal_tuple.remove(pal)
                 assert key[2] == 2
                 return pal
@@ -281,7 +367,9 @@ class AgentInterrogation:
         def powerset(iterable):
             """powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"""
             s = list(iterable)
-            return itertools.chain.from_iterable(itertools.combinations(s, r) for r in range(len(s) + 1))
+            return itertools.chain.from_iterable(
+                itertools.combinations(s, r) for r in range(len(s) + 1)
+            )
 
         new_init_states = [{}]
         state_objects = []
@@ -308,7 +396,9 @@ class AgentInterrogation:
                             new_temp_state_val[pred] = list(p)
                         else:
                             new_temp_state_val[pred] = [()]
-                        init_state_obj = State(new_temp_state_val, self.objects)
+                        init_state_obj = State(
+                            new_temp_state_val, self.objects
+                        )
                         state_objects.append(init_state_obj)
                         new_init_states.append(new_temp_state_val)
                         _init_state_count += 1
@@ -322,7 +412,9 @@ class AgentInterrogation:
                                 new_temp_state_val[pred] = list(p)
                             else:
                                 new_temp_state_val[pred] = [()]
-                            init_state_obj = State(new_temp_state_val, self.objects)
+                            init_state_obj = State(
+                                new_temp_state_val, self.objects
+                            )
                             state_objects.append(init_state_obj)
                             new_init_states.append(new_temp_state_val)
                             _init_state_count += 1
@@ -349,20 +441,30 @@ class AgentInterrogation:
                 if action in action_pred_list.keys():
                     old_preds = action_pred_list[action]
                     if len(old_preds) > 0:
-                        temp_preds = latt.generate_preds_for_action(predicate, action, self.pred_type_mapping,
-                                                                    self.action_parameters)
+                        temp_preds = latt.generate_preds_for_action(
+                            predicate,
+                            action,
+                            self.pred_type_mapping,
+                            self.action_parameters,
+                        )
                         if temp_preds is None:
                             continue
                         action_pred_list[action].extend(temp_preds)
                 else:
-                    temp_preds = latt.generate_preds_for_action(predicate, action, self.pred_type_mapping,
-                                                                self.action_parameters)
+                    temp_preds = latt.generate_preds_for_action(
+                        predicate,
+                        action,
+                        self.pred_type_mapping,
+                        self.action_parameters,
+                    )
                     if temp_preds is not None:
                         action_pred_list[action] = temp_preds
         return action_pred_list
 
-    #@check_saved
-    def generate_query(self, po_query_module, model_1, model_2, init_state, next_pal_tuple):
+    # @check_saved
+    def generate_query(
+        self, po_query_module, model_1, model_2, init_state, next_pal_tuple
+    ):
         """
         :param po_query_module:
         :param model_1:
@@ -373,56 +475,92 @@ class AgentInterrogation:
         """
 
         def remove_extra_preds(model):
-            extra_preds = ['leftOf','rightOf','above','below']
+            extra_preds = ["leftOf", "rightOf", "above", "below"]
             remove_preds = []
             for pred in model.predicates:
-                pname = pred.split('-')[0]
+                pname = pred.split("-")[0]
                 if pname in extra_preds:
                     remove_preds.append(pred)
             for p in remove_preds:
-                model.predicates.pop(p) 
+                model.predicates.pop(p)
             for action in model.actions:
                 for k in remove_preds:
-                    model.actions[action].pop(k) 
+                    model.actions[action].pop(k)
             return model
-                
 
-
-
-        
         temp_model_1 = copy.deepcopy(model_1)
         temp_model_2 = copy.deepcopy(model_2)
         temp_model_1 = remove_extra_preds(temp_model_1)
         temp_model_2 = remove_extra_preds(temp_model_2)
 
-        po_query = po_query_module.Query(temp_model_1, temp_model_2, init_state, next_pal_tuple, self.pal_tuple_dict)
+        po_query = po_query_module.Query(
+            temp_model_1,
+            temp_model_2,
+            init_state,
+            next_pal_tuple,
+            self.pal_tuple_dict,
+        )
 
-        plan_raw = po_query.get_plan_from_query(init_state, self.domain_name,
-                                                self.objects, self.pred_type_mapping,
-                                                self.action_parameters)
+        plan_raw = po_query.get_plan_from_query(
+            init_state,
+            self.domain_name,
+            self.objects,
+            self.pred_type_mapping,
+            self.action_parameters,
+        )
 
         return plan_raw
 
-    def discard_models(self, m1, m2, init_state, plan_raw, next_pal_tuple, valid_models,
-                       action, action_pred, action_pred_rejection_combination, state, predicate, modes,
-                       po_query_module, discarded_count, ref):
-        po_query = po_query_module.Query(m1, m2, init_state, next_pal_tuple, self.pal_tuple_dict)
+    def discard_models(
+        self,
+        m1,
+        m2,
+        init_state,
+        plan_raw,
+        next_pal_tuple,
+        valid_models,
+        action,
+        action_pred,
+        action_pred_rejection_combination,
+        state,
+        predicate,
+        modes,
+        po_query_module,
+        discarded_count,
+        ref,
+    ):
+        po_query = po_query_module.Query(
+            m1, m2, init_state, next_pal_tuple, self.pal_tuple_dict
+        )
         plan_m1 = ExecutePlan(m1, po_query.init_state, plan_raw)
-        is_executable_m1, state_m1, failure_index_1 = plan_m1.execute_plan(self.pal_tuple_dict)
+        is_executable_m1, state_m1, failure_index_1 = plan_m1.execute_plan(
+            self.pal_tuple_dict
+        )
         plan_m2 = ExecutePlan(m2, po_query.init_state, plan_raw)
-        is_executable_m2, state_m2, failure_index_2 = plan_m2.execute_plan(self.pal_tuple_dict)
+        is_executable_m2, state_m2, failure_index_2 = plan_m2.execute_plan(
+            self.pal_tuple_dict
+        )
         is_any_model_discarded = False
-        if (not is_executable_m1 or not is_executable_m2) and next_pal_tuple[2] == Location.PRECOND:
+        if (not is_executable_m1 or not is_executable_m2) and next_pal_tuple[
+            2
+        ] == Location.PRECOND:
             if not is_executable_m1:
                 discarded_count += 1
                 self.discard_model(m1, valid_models)
 
                 is_any_model_discarded = True
-                rejected_literal = m1.actions[action][action_pred][int(ref) - 1]
+                rejected_literal = m1.actions[action][action_pred][
+                    int(ref) - 1
+                ]
 
                 modes.remove(rejected_literal)
-                self.reject_action_pred_combo(action, action_pred, rejected_literal, int(ref) - 1,
-                                              action_pred_rejection_combination)
+                self.reject_action_pred_combo(
+                    action,
+                    action_pred,
+                    rejected_literal,
+                    int(ref) - 1,
+                    action_pred_rejection_combination,
+                )
             # {'pickupb1': {'on-floor-bottle1': [<Literal.ABS: 0>, <Literal.NEG: -1>]}}
             # {'pickupb1': {'on-floor-bottle1': [<Literal.NEG: -1>, <Literal.NEG: -1>]}}
             # M2 can't run the plan so returns None, but agent can run
@@ -432,14 +570,23 @@ class AgentInterrogation:
                 discarded_count += 1
                 self.discard_model(m2, valid_models)
                 is_any_model_discarded = True
-                rejected_literal = m2.actions[action][action_pred][int(ref) - 1]
+                rejected_literal = m2.actions[action][action_pred][
+                    int(ref) - 1
+                ]
                 modes.remove(rejected_literal)
-                self.reject_action_pred_combo(action, action_pred, rejected_literal,
-                                              int(ref) - 1,
-                                              action_pred_rejection_combination)
+                self.reject_action_pred_combo(
+                    action,
+                    action_pred,
+                    rejected_literal,
+                    int(ref) - 1,
+                    action_pred_rejection_combination,
+                )
 
-        if not m1.discarded and not m2.discarded and \
-                next_pal_tuple[2] == Location.EFFECTS:
+        if (
+            not m1.discarded
+            and not m2.discarded
+            and next_pal_tuple[2] == Location.EFFECTS
+        ):
 
             original_predicate = predicate.split("|")[0]
 
@@ -458,25 +605,47 @@ class AgentInterrogation:
             We can ACCEPT only if PLAN LEN = 1
             """
 
-            if (original_predicate in state and original_predicate not in state_m2) or \
-                    (original_predicate not in state and original_predicate in state_m2):
+            if (
+                original_predicate in state
+                and original_predicate not in state_m2
+            ) or (
+                original_predicate not in state
+                and original_predicate in state_m2
+            ):
                 discarded_count += 1
                 self.discard_model(m2, valid_models)
                 is_any_model_discarded = True
-                rejected_literal = m2.actions[action][action_pred][int(ref) - 1]
-                self.reject_action_pred_combo(action, action_pred, rejected_literal,
-                                              int(ref) - 1,
-                                              action_pred_rejection_combination)
+                rejected_literal = m2.actions[action][action_pred][
+                    int(ref) - 1
+                ]
+                self.reject_action_pred_combo(
+                    action,
+                    action_pred,
+                    rejected_literal,
+                    int(ref) - 1,
+                    action_pred_rejection_combination,
+                )
 
-            if (original_predicate in state and original_predicate not in state_m1) or \
-                    (original_predicate not in state and original_predicate in state_m1):
+            if (
+                original_predicate in state
+                and original_predicate not in state_m1
+            ) or (
+                original_predicate not in state
+                and original_predicate in state_m1
+            ):
                 discarded_count += 1
                 self.discard_model(m1, valid_models)
                 is_any_model_discarded = True
-                rejected_literal = m1.actions[action][action_pred][int(ref) - 1]
-                self.reject_action_pred_combo(action, action_pred, rejected_literal,
-                                              int(ref) - 1,
-                                              action_pred_rejection_combination)
+                rejected_literal = m1.actions[action][action_pred][
+                    int(ref) - 1
+                ]
+                self.reject_action_pred_combo(
+                    action,
+                    action_pred,
+                    rejected_literal,
+                    int(ref) - 1,
+                    action_pred_rejection_combination,
+                )
 
         return discarded_count, is_any_model_discarded, valid_models
 
@@ -490,10 +659,10 @@ class AgentInterrogation:
 
     def get_additional_plans(self, action, model1, model2, next_pal_tuple):
         action_name = action.split("|")[0]
-        param = FF_PATH + "ff"
+        param = "ff-planner"
         param += " -o " + Q_DOMAIN_FILE
         param += " -f " + Q_PROBLEM_FILE
-        param += " -i 120 | grep -i \"Action " + action_name + "\" |"
+        param += ' -i 120 | grep -i "Action ' + action_name + '" |'
         param += " sed 's/Action //'"
         param += " > " + ALL_ACTION_FILE
         p = subprocess.Popen([param], shell=True)
@@ -502,8 +671,17 @@ class AgentInterrogation:
             possible_actions = f.read().splitlines()
         if not is_simulator_agent:
             f = open(Q_DOMAIN_FILE, "w")
-            FileUtils.write_domain_to_file(f, self.domain_name, self.objects, self.pred_type_mapping,
-                                           self.action_parameters, model1, model2, self.pal_tuple_dict, next_pal_tuple)
+            FileUtils.write_domain_to_file(
+                f,
+                self.domain_name,
+                self.objects,
+                self.pred_type_mapping,
+                self.action_parameters,
+                model1,
+                model2,
+                self.pal_tuple_dict,
+                next_pal_tuple,
+            )
             f.close()
 
         valid_plans = []
@@ -519,7 +697,7 @@ class AgentInterrogation:
             param += " " + Q_DOMAIN_FILE
             param += " " + Q_PROBLEM_FILE
             param += " " + temp_plan_file
-            param += " | grep -i \"successfully\""
+            param += ' | grep -i "successfully"'
             param += " > " + Q_RESULT_FILE
             p = subprocess.Popen([param], shell=True)
             p.wait()
@@ -529,17 +707,29 @@ class AgentInterrogation:
 
         return valid_plans
 
-    def update_pal_ordering(self, init_state, failure_index, plan_raw, valid_models,
-                            next_pal_tuple, model1, model2, po_query_module, lattice_node):
+    def update_pal_ordering(
+        self,
+        init_state,
+        failure_index,
+        plan_raw,
+        valid_models,
+        next_pal_tuple,
+        model1,
+        model2,
+        po_query_module,
+        lattice_node,
+    ):
         full_states_used = False
         refined_for_agent_failure = False
-        
+
         if failure_index > 0:
             temp_plan_raw = copy.deepcopy(plan_raw[failure_index:])
             plan = ExecutePlan(model1, init_state, plan_raw[:failure_index])
-            is_executable_agent, state_abstracted, fail_index = plan.execute_plan(self.pal_tuple_dict)
-            #commenting line below since for zelda it'll be called with zero plan length
-            assert (is_executable_agent and failure_index == fail_index)
+            is_executable_agent, state_abstracted, fail_index = (
+                plan.execute_plan(self.pal_tuple_dict)
+            )
+            # commenting line below since for zelda it'll be called with zero plan length
+            assert is_executable_agent and failure_index == fail_index
         # Assertion failure? Then how was query generated
         else:
             temp_plan_raw = copy.deepcopy(plan_raw)
@@ -549,7 +739,9 @@ class AgentInterrogation:
         state_full = self.get_full_state(temp_plan_raw[0], lattice_node)
         if not is_simulator_agent:
             # State with all the predicates
-            is_executable_agent, failure_index, state = self.ask_query(set_to_state(state_full), temp_plan_raw[0:1])
+            is_executable_agent, failure_index, state = self.ask_query(
+                set_to_state(state_full), temp_plan_raw[0:1]
+            )
 
             if is_executable_agent:
                 found_state = True
@@ -558,7 +750,7 @@ class AgentInterrogation:
             else:
                 print("FAILURE")
                 start = 0
-                with open(self.random_state_file, 'rb') as f:
+                with open(self.random_state_file, "rb") as f:
                     random_states = pickle.load(f)
                 i = 0
                 _curr_state_set = copy.deepcopy(state_full)
@@ -566,7 +758,9 @@ class AgentInterrogation:
 
                     _curr_state_set.remove(_state)
                     _curr_state = set_to_state(_curr_state_set)
-                    is_executable_agent, failure_index, state = self.ask_query(_curr_state, temp_plan_raw[0:1])
+                    is_executable_agent, failure_index, state = self.ask_query(
+                        _curr_state, temp_plan_raw[0:1]
+                    )
 
                     if is_executable_agent:
                         possible_state = _curr_state
@@ -580,50 +774,80 @@ class AgentInterrogation:
                         i += 1
                         self.objects = _state.objects
                         _curr_state = _state.state
-                        _temp_plan_raw = self.generate_query(po_query_module, model1, model2, _curr_state,
-                                                             next_pal_tuple)
+                        _temp_plan_raw = self.generate_query(
+                            po_query_module,
+                            model1,
+                            model2,
+                            _curr_state,
+                            next_pal_tuple,
+                        )
                         if len(_temp_plan_raw) != 0:
                             # Last action of generated plan should be distinguishing
                             curr_action = temp_plan_raw[0].split("|")[0]
                             _i = 0
                             for _i in range(len(_temp_plan_raw)):
-                                if _temp_plan_raw[_i].split("|")[0] == curr_action:
+                                if (
+                                    _temp_plan_raw[_i].split("|")[0]
+                                    == curr_action
+                                ):
                                     break
                             if _i == len(_temp_plan_raw):
                                 continue
                             if _i > 0:
-                                is_executable_agent, failure_index, state = self.ask_query(_state.state,
-                                                                                           _temp_plan_raw[0:_i])
+                                is_executable_agent, failure_index, state = (
+                                    self.ask_query(
+                                        _state.state, _temp_plan_raw[0:_i]
+                                    )
+                                )
                                 if is_executable_agent:
-                                    _curr_state = State(set_to_state(_curr_state), _state.objects)
+                                    _curr_state = State(
+                                        set_to_state(_curr_state),
+                                        _state.objects,
+                                    )
                                     start = _i
                                 else:
                                     continue
                         else:
                             continue
-                        is_executable_agent, failure_index, state = self.ask_query(_curr_state,
-                                                                                   _temp_plan_raw[start:start + 1])
+                        is_executable_agent, failure_index, state = (
+                            self.ask_query(
+                                _curr_state, _temp_plan_raw[start : start + 1]
+                            )
+                        )
 
                         if is_executable_agent:
                             found_state = True
                             possible_state = _curr_state
-                            temp_plan_raw = copy.deepcopy(_temp_plan_raw[start:start + 1])
+                            temp_plan_raw = copy.deepcopy(
+                                _temp_plan_raw[start : start + 1]
+                            )
                             break
                         else:
                             print("Failed: ", i)
         else:
             valid_plans = [[temp_plan_raw[-1]]]
             valid_plans.extend(
-                self.get_additional_plans(temp_plan_raw[-1], model1, model2, next_pal_tuple))
+                self.get_additional_plans(
+                    temp_plan_raw[-1], model1, model2, next_pal_tuple
+                )
+            )
             init_state_tried = 0
             temp_new_init_states = self.agent.agent_model.random_states[:]
             while not found_state and init_state_tried < 1000:
                 for plan in valid_plans:
                     print("Plan: ", plan)
                     for _state in temp_new_init_states:
-                        #temporary hack: use the pre-state seen in trace
-                        init_state = self.agent.agent_model.translator.high_actions[plan[0]][0]
-                        _state = self.agent.agent_model.translator.get_ground_state(init_state)
+                        # temporary hack: use the pre-state seen in trace
+                        init_state = (
+                            self.agent.agent_model.translator.high_actions[
+                                plan[0]
+                            ][0]
+                        )
+                        _state = (
+                            self.agent.agent_model.translator.get_ground_state(
+                                init_state
+                            )
+                        )
                         if VERBOSE:
                             print(_state)
                         # if next_pal_tuple == ('a11', 'at_0-player0-cell_3_4', 1):
@@ -634,11 +858,13 @@ class AgentInterrogation:
                         #     a = self.agent.agent_model
                         #     t = a.translator
                         #     _state = t.get_ground_state(a.action_objects['a59'].state_before)
-                        
-                        #self.objects = _state.objects
+
+                        # self.objects = _state.objects
                         self.objects = {}
                         init_state_tried += 1
-                        is_executable_agent, failure_index, state = self.ask_query(_state.state, plan)
+                        is_executable_agent, failure_index, state = (
+                            self.ask_query(_state.state, plan)
+                        )
 
                         if is_executable_agent:
                             possible_state = _state.state
@@ -647,15 +873,19 @@ class AgentInterrogation:
                             break
                     if found_state:
                         break
-                    #print("Exhausted states")
+                    # print("Exhausted states")
 
                 if not found_state:
                     temp_new_init_states = copy.deepcopy(
-                        self.agent.agent_model.get_more_random_states(10,
-                                                                      save=False,
-                                                                      random_walk=True))
+                        self.agent.agent_model.get_more_random_states(
+                            10, save=False, random_walk=True
+                        )
+                    )
                     print(len(temp_new_init_states), " new states generated")
-                if temp_new_init_states is None or len(temp_new_init_states) == 0:
+                if (
+                    temp_new_init_states is None
+                    or len(temp_new_init_states) == 0
+                ):
                     break
         if not found_state:
             print("Here after failing")
@@ -674,11 +904,14 @@ class AgentInterrogation:
                     # We have already found the minimal state that needs to be true
                     # to execute the action temp_plan_raw[i-1], now whatever effect we get is minimal effect
 
-                    is_executable_agent, failure_index, possible_state = self.ask_query(current_state,
-                                                                                        temp_plan_raw[i - 1:i], True)
+                    is_executable_agent, failure_index, possible_state = (
+                        self.ask_query(
+                            current_state, temp_plan_raw[i - 1 : i], True
+                        )
+                    )
 
                     try:
-                        assert (is_executable_agent and failure_index == 1)
+                        assert is_executable_agent and failure_index == 1
                     except AssertionError as e:
                         # We cannot make calls on effects as agent didn't run the plan.
                         print("Assertion Error: ", e)
@@ -696,107 +929,219 @@ class AgentInterrogation:
                     instantiated_pred_doubtful = set()
                     for d_pred in doubtful_preds:
                         if not (
-                                self.is_action_pred_compatible(temp_plan_raw[i - 1].split("|")[0],
-                                                               d_pred.split("|")[0])):
+                            self.is_action_pred_compatible(
+                                temp_plan_raw[i - 1].split("|")[0],
+                                d_pred.split("|")[0],
+                            )
+                        ):
                             continue
-                        action_name, instantiated_pred = map_pred_action_param(d_pred, temp_plan_raw[i - 1])
-                        if instantiated_pred is not None and action_name is not None:
+                        action_name, instantiated_pred = map_pred_action_param(
+                            d_pred, temp_plan_raw[i - 1]
+                        )
+                        if (
+                            instantiated_pred is not None
+                            and action_name is not None
+                        ):
                             instantiated_pred_doubtful.add(instantiated_pred)
 
                     if not full_states_used:
-                        instantiated_pred_doubtful = instantiated_pred_doubtful | abs_preds_precond
+                        instantiated_pred_doubtful = (
+                            instantiated_pred_doubtful | abs_preds_precond
+                        )
 
                     for d_pred in instantiated_pred_doubtful:
-                        if self.pal_tuple_dict[(temp_act, d_pred, Location.PRECOND)]:
+                        if self.pal_tuple_dict[
+                            (temp_act, d_pred, Location.PRECOND)
+                        ]:
                             continue
-                        d_pred = instantiate_pred_with_action(d_pred, temp_plan_raw[i - 1])
+                        d_pred = instantiate_pred_with_action(
+                            d_pred, temp_plan_raw[i - 1]
+                        )
                         if d_pred is None:
                             continue
-                        ##fix _new_state_set 
-                        #_new_state_set = {d_pred} | curr_state_set
-                        _new_state_set,_ = self.agent.fix_state(d_pred,curr_state_set,False,None)
+                        ##fix _new_state_set
+                        # _new_state_set = {d_pred} | curr_state_set
+                        _new_state_set, _ = self.agent.fix_state(
+                            d_pred, curr_state_set, False, None
+                        )
                         _new_state = set_to_state(_new_state_set)
 
-                        is_executable_agent, failure_index, possible_state = self.ask_query(_new_state,
-                                                                                            temp_plan_raw[i - 1:i])
+                        is_executable_agent, failure_index, possible_state = (
+                            self.ask_query(
+                                _new_state, temp_plan_raw[i - 1 : i]
+                            )
+                        )
                         if not is_executable_agent:
-                            action_name, instantiated_pred = map_pred_action_param(d_pred, temp_plan_raw[i - 1])
+                            action_name, instantiated_pred = (
+                                map_pred_action_param(
+                                    d_pred, temp_plan_raw[i - 1]
+                                )
+                            )
                             if failure_index != -1:
                                 if instantiated_pred in abs_preds_precond:
                                     abs_preds_precond.remove(instantiated_pred)
                                 neg_precond.add(instantiated_pred)
                             else:
                                 print(".")
-                                _,_ = self.agent.fix_state(d_pred,curr_state_set,False,None)
+                                _, _ = self.agent.fix_state(
+                                    d_pred, curr_state_set, False, None
+                                )
                         elif d_pred not in possible_state:
                             if d_pred in abs_effects:
                                 abs_effects.remove(d_pred)
                             del_effects.add(d_pred)
 
                     for preds in abs_preds_precond:
-                        if not self.pal_tuple_dict[(temp_act, preds, Location.PRECOND)]:
-                            valid_models = self.propagate_refinement_in_models(valid_models,
-                                                                               [temp_act, preds, Literal.ABS],
-                                                                               next_pal_tuple, Location.PRECOND)
-                            self.fix_pal_tuple((temp_act, preds, Location.PRECOND), valid_models)
+                        if not self.pal_tuple_dict[
+                            (temp_act, preds, Location.PRECOND)
+                        ]:
+                            valid_models = self.propagate_refinement_in_models(
+                                valid_models,
+                                [temp_act, preds, Literal.ABS],
+                                next_pal_tuple,
+                                Location.PRECOND,
+                            )
+                            self.fix_pal_tuple(
+                                (temp_act, preds, Location.PRECOND),
+                                valid_models,
+                            )
 
                     for preds in neg_precond:
-                        if not self.pal_tuple_dict[(temp_act, preds, Location.PRECOND)]:
-                            valid_models = self.propagate_refinement_in_models(valid_models,
-                                                                               [temp_act, preds, Literal.NEG],
-                                                                               next_pal_tuple, Location.PRECOND)
-                            self.fix_pal_tuple((temp_act, preds, Location.PRECOND), valid_models)
+                        if not self.pal_tuple_dict[
+                            (temp_act, preds, Location.PRECOND)
+                        ]:
+                            valid_models = self.propagate_refinement_in_models(
+                                valid_models,
+                                [temp_act, preds, Literal.NEG],
+                                next_pal_tuple,
+                                Location.PRECOND,
+                            )
+                            self.fix_pal_tuple(
+                                (temp_act, preds, Location.PRECOND),
+                                valid_models,
+                            )
 
                     for e in add_effects:
-                        action_name, instantiated_pred = map_pred_action_param(e, temp_plan_raw[i - 1])
-                        if action_name is None or \
-                            (action_name, instantiated_pred, Location.EFFECTS) not in self.pal_tuple_dict.keys() or\
-                                self.pal_tuple_dict[(action_name, instantiated_pred, Location.EFFECTS)]:
+                        action_name, instantiated_pred = map_pred_action_param(
+                            e, temp_plan_raw[i - 1]
+                        )
+                        if (
+                            action_name is None
+                            or (
+                                action_name,
+                                instantiated_pred,
+                                Location.EFFECTS,
+                            )
+                            not in self.pal_tuple_dict.keys()
+                            or self.pal_tuple_dict[
+                                (
+                                    action_name,
+                                    instantiated_pred,
+                                    Location.EFFECTS,
+                                )
+                            ]
+                        ):
                             continue
-                        valid_models = self.propagate_refinement_in_models(valid_models,
-                                                                           [action_name, instantiated_pred,
-                                                                            Literal.POS], next_pal_tuple,
-                                                                           Location.EFFECTS)
-                        self.fix_pal_tuple((action_name, instantiated_pred, Location.EFFECTS), valid_models)
+                        valid_models = self.propagate_refinement_in_models(
+                            valid_models,
+                            [action_name, instantiated_pred, Literal.POS],
+                            next_pal_tuple,
+                            Location.EFFECTS,
+                        )
+                        self.fix_pal_tuple(
+                            (action_name, instantiated_pred, Location.EFFECTS),
+                            valid_models,
+                        )
 
                     for e in del_effects:
-                        action_name, instantiated_pred = map_pred_action_param(e, temp_plan_raw[i - 1])
-                        if action_name is None or \
-                            (action_name, instantiated_pred, Location.EFFECTS) not in self.pal_tuple_dict.keys() or\
-                                self.pal_tuple_dict[(action_name, instantiated_pred, Location.EFFECTS)]:
+                        action_name, instantiated_pred = map_pred_action_param(
+                            e, temp_plan_raw[i - 1]
+                        )
+                        if (
+                            action_name is None
+                            or (
+                                action_name,
+                                instantiated_pred,
+                                Location.EFFECTS,
+                            )
+                            not in self.pal_tuple_dict.keys()
+                            or self.pal_tuple_dict[
+                                (
+                                    action_name,
+                                    instantiated_pred,
+                                    Location.EFFECTS,
+                                )
+                            ]
+                        ):
                             continue
-                        valid_models = self.propagate_refinement_in_models(valid_models,
-                                                                           [action_name, instantiated_pred,
-                                                                            Literal.NEG], next_pal_tuple,
-                                                                           Location.EFFECTS)
-                        self.fix_pal_tuple((action_name, instantiated_pred, Location.EFFECTS), valid_models)
+                        valid_models = self.propagate_refinement_in_models(
+                            valid_models,
+                            [action_name, instantiated_pred, Literal.NEG],
+                            next_pal_tuple,
+                            Location.EFFECTS,
+                        )
+                        self.fix_pal_tuple(
+                            (action_name, instantiated_pred, Location.EFFECTS),
+                            valid_models,
+                        )
 
                     # Since we are not using all possible predicates in init state, any inferences about effect being
                     # absent is incorrect.
                     for e in abs_effects:
-                        action_name, instantiated_pred = map_pred_action_param(e, temp_plan_raw[i - 1])
-                        if action_name is None or \
-                            (action_name, instantiated_pred, Location.EFFECTS) not in self.pal_tuple_dict.keys() or\
-                                self.pal_tuple_dict[(action_name, instantiated_pred, Location.EFFECTS)]:
+                        action_name, instantiated_pred = map_pred_action_param(
+                            e, temp_plan_raw[i - 1]
+                        )
+                        if (
+                            action_name is None
+                            or (
+                                action_name,
+                                instantiated_pred,
+                                Location.EFFECTS,
+                            )
+                            not in self.pal_tuple_dict.keys()
+                            or self.pal_tuple_dict[
+                                (
+                                    action_name,
+                                    instantiated_pred,
+                                    Location.EFFECTS,
+                                )
+                            ]
+                        ):
                             continue
-                        valid_models = self.propagate_refinement_in_models(valid_models,
-                                                                           [action_name, instantiated_pred,
-                                                                            Literal.ABS], next_pal_tuple,
-                                                                           Location.EFFECTS)
-                        self.fix_pal_tuple((action_name, instantiated_pred, Location.EFFECTS), valid_models)
+                        valid_models = self.propagate_refinement_in_models(
+                            valid_models,
+                            [action_name, instantiated_pred, Literal.ABS],
+                            next_pal_tuple,
+                            Location.EFFECTS,
+                        )
+                        self.fix_pal_tuple(
+                            (action_name, instantiated_pred, Location.EFFECTS),
+                            valid_models,
+                        )
 
                     # ASSUMING AGENT CAN EXECUTE TEMP_PLAN_RAW[i]
                     temp_act = temp_plan_raw[i - 1].split("|")[0]
-                    all_preds_abs = [tup[1] for tup in self.pal_tuple_dict.keys() if
-                                     tup[0] == temp_act and
-                                     tup[2] == Location.EFFECTS and
-                                     not self.pal_tuple_dict[tup]]
+                    all_preds_abs = [
+                        tup[1]
+                        for tup in self.pal_tuple_dict.keys()
+                        if tup[0] == temp_act
+                        and tup[2] == Location.EFFECTS
+                        and not self.pal_tuple_dict[tup]
+                    ]
                     for preds in all_preds_abs:
-                        if not self.pal_tuple_dict[(temp_act, preds, Location.EFFECTS)]:
-                            valid_models = self.propagate_refinement_in_models(valid_models,
-                                                                               [temp_act, preds, Literal.ABS],
-                                                                               next_pal_tuple, Location.EFFECTS)
-                            self.fix_pal_tuple((temp_act, preds, Location.EFFECTS), valid_models)
+                        if not self.pal_tuple_dict[
+                            (temp_act, preds, Location.EFFECTS)
+                        ]:
+                            valid_models = self.propagate_refinement_in_models(
+                                valid_models,
+                                [temp_act, preds, Literal.ABS],
+                                next_pal_tuple,
+                                Location.EFFECTS,
+                            )
+                            self.fix_pal_tuple(
+                                (temp_act, preds, Location.EFFECTS),
+                                valid_models,
+                            )
 
                     if i == len(temp_plan_raw):
                         continue
@@ -807,50 +1152,60 @@ class AgentInterrogation:
                 _full_state = copy.deepcopy(possible_state)
                 new_preds_temp = []
                 for key, val in _full_state.items():
-                    print("checking: "+key)
-                    '''Removing this since all grounded predicates are compatible with all actions'''
-                    #if not (self.is_action_pred_compatible(temp_plan_raw[i].split("|")[0], key)):
+                    print("checking: " + key)
+                    """Removing this since all grounded predicates are compatible with all actions"""
+                    # if not (self.is_action_pred_compatible(temp_plan_raw[i].split("|")[0], key)):
                     #    continue
                     for v in val:
-                        #adding check for self.pal_tuple_dict[pal] == True here since
-                        #This is only okay for grounded predicates
-                        # Additionally, if the pal tuple is not present, then we have picked a new 
+                        # adding check for self.pal_tuple_dict[pal] == True here since
+                        # This is only okay for grounded predicates
+                        # Additionally, if the pal tuple is not present, then we have picked a new
                         # grounded predicate that hasn't been seen in the traces.
                         # for the current implementation, this is ignored
                         # in future this should be incorporated somehow as new information.
-        
-                        present = self.pal_tuple_dict.get((temp_plan_raw[i],key,Location.PRECOND))
+
+                        present = self.pal_tuple_dict.get(
+                            (temp_plan_raw[i], key, Location.PRECOND)
+                        )
                         if present == True or present == None:
                             continue
-                        
+
                         temp_init = copy.deepcopy(current_state)
                         if len(val) == 1:
-                            #check this
+                            # check this
                             if key not in temp_init:
                                 continue
                             del temp_init[key]
-                            assert (key not in list(temp_init.keys()))
+                            assert key not in list(temp_init.keys())
                         else:
                             temp_init[key].remove(v)
 
-                        fixed_preds = {key:[v]}
-                        #vstate = self.agent.get_correct_state(fixed_preds,current_state)
-                        temp_init,preds_added = self.agent.fix_state(fixed_preds,temp_init,True,None)
+                        fixed_preds = {key: [v]}
+                        # vstate = self.agent.get_correct_state(fixed_preds,current_state)
+                        temp_init, preds_added = self.agent.fix_state(
+                            fixed_preds, temp_init, True, None
+                        )
 
-                        is_executable_agent, failure_index, possible_state = self.ask_query(temp_init,
-                                                                                           temp_plan_raw[i:], True)
+                        is_executable_agent, failure_index, possible_state = (
+                            self.ask_query(temp_init, temp_plan_raw[i:], True)
+                        )
 
                         # is_executable_agent, failure_index, possible_state = self.ask_query(fstate,
                         #                                                                     temp_plan_raw[i:], True)
-                                                                                                       
+
                         # For plans of length more than 1, it is possible that agent failed for 2nd or later action
                         # in the plan, so even if is_executable_agent false, check if failure_index = 1 or later
                         if is_executable_agent or failure_index >= 1:
                             initial_val_len = len(current_state[key])
                             current_state[key].remove(v)
-                            if initial_val_len > 0 and len(current_state[key]) == 0:
+                            if (
+                                initial_val_len > 0
+                                and len(current_state[key]) == 0
+                            ):
                                 del current_state[key]
-                            current_state,_ = self.agent.fix_state(fixed_preds,current_state,True,None)
+                            current_state, _ = self.agent.fix_state(
+                                fixed_preds, current_state, True, None
+                            )
                         else:
                             if isinstance(v, (list, tuple)) and len(v) > 1:
                                 final_val = key
@@ -858,24 +1213,54 @@ class AgentInterrogation:
                                     final_val += "|" + v[ind]
                                 predicate_temp = [final_val]
                             else:
-                                predicate_temp = list(state_to_set({key: tuple(v, )}))
+                                predicate_temp = list(
+                                    state_to_set(
+                                        {
+                                            key: tuple(
+                                                v,
+                                            )
+                                        }
+                                    )
+                                )
 
                             action = temp_plan_raw[i]
-                            action_name, instantiated_pred = map_pred_action_param(predicate_temp[0], action)
+                            action_name, instantiated_pred = (
+                                map_pred_action_param(
+                                    predicate_temp[0], action
+                                )
+                            )
                             if action_name is None:
                                 continue
                             new_preds_temp.append(instantiated_pred)
-                            if self.pal_tuple_dict[(action_name, instantiated_pred, Location.PRECOND)]:
+                            if self.pal_tuple_dict[
+                                (
+                                    action_name,
+                                    instantiated_pred,
+                                    Location.PRECOND,
+                                )
+                            ]:
                                 continue
-                            valid_models = self.propagate_refinement_in_models(valid_models,
-                                                                               [action_name, instantiated_pred,
-                                                                                Literal.POS], next_pal_tuple,
-                                                                               Location.PRECOND)
-                            self.fix_pal_tuple((action_name, instantiated_pred, Location.PRECOND), valid_models)
+                            valid_models = self.propagate_refinement_in_models(
+                                valid_models,
+                                [action_name, instantiated_pred, Literal.POS],
+                                next_pal_tuple,
+                                Location.PRECOND,
+                            )
+                            self.fix_pal_tuple(
+                                (
+                                    action_name,
+                                    instantiated_pred,
+                                    Location.PRECOND,
+                                ),
+                                valid_models,
+                            )
                 # ASSUMING AGENT CAN EXECUTE TEMP_PLAN_RAW[i]
                 temp_act = temp_plan_raw[i].split("|")[0]
-                all_preds_poss = [tup[1] for tup in self.pal_tuple_dict.keys() if
-                                  tup[0] == temp_act and tup[2] == Location.PRECOND]
+                all_preds_poss = [
+                    tup[1]
+                    for tup in self.pal_tuple_dict.keys()
+                    if tup[0] == temp_act and tup[2] == Location.PRECOND
+                ]
                 abs_preds_precond = set(all_preds_poss) - set(new_preds_temp)
 
                 neg_case = False
@@ -899,31 +1284,38 @@ class AgentInterrogation:
         # pal_tuple_dict = {}
 
         replaced_actions = []
-        '''
+        """
         if self.agent.agent_type == "simulator":
             for action in self.abstract_model.actions.keys():
                 replaced_action = copy.deepcopy(action)
                 replaced_action = replaced_action.replace('-', '')
                 replaced_actions.append(replaced_action)
-        '''
+        """
         for action in self.abstract_model.actions.keys():
             for predicate in self.pred_type_mapping.keys():
                 # Generate the predicates with action parameter index inbuilt into them
                 # ontable takes one argument, if action a has 2 possible locations of that argument type, say 0 and 2
                 # so it'll get converted to ontable|0 and ontable|2 when called with action a
                 if not ground_actions:
-                    temp_preds = lattice_node.generate_preds_for_action(predicate, action, self.pred_type_mapping,
-                                                                    self.action_parameters)
+                    temp_preds = lattice_node.generate_preds_for_action(
+                        predicate,
+                        action,
+                        self.pred_type_mapping,
+                        self.action_parameters,
+                    )
                 else:
                     temp_preds = [predicate]
-                                                    
+
                 if temp_preds is not None:
                     for i in range(2):
                         for p in temp_preds:
                             # Use tuples as key
                             key = (action, p, Location(i + 1))
                             p_name = p.lower().split("|")[0]
-                            if self.agent.agent_type == "simulator" and p_name in replaced_actions:
+                            if (
+                                self.agent.agent_type == "simulator"
+                                and p_name in replaced_actions
+                            ):
                                 self.pal_tuple_dict[key] = True
                             # We can do this at the end too if p_name == action.replace('-', '') and p_params ==
                             # sorted(p_params) and p_params[0] == "0": self.abstract_model.actions[action][p] =
@@ -932,13 +1324,14 @@ class AgentInterrogation:
                             else:
                                 self.pal_tuple_dict[key] = False
 
-        
         if is_simulator_agent:
-            _, _, pal_tuples_finalized = self.agent.agent_model.bootstrap_model()
+            _, _, pal_tuples_finalized = (
+                self.agent.agent_model.bootstrap_model()
+            )
             for tup in pal_tuples_finalized:
-                assert (tup in self.pal_tuple_dict.keys())
+                assert tup in self.pal_tuple_dict.keys()
                 self.pal_tuple_dict[tup] = True
-        
+
         return
 
     def get_full_state(self, action, lattice_node):
@@ -950,8 +1343,12 @@ class AgentInterrogation:
             # Generate the predicates with action parameter index inbuilt into them
             # ontable takes one argument, if action a has 2 possible locations of that argument type, say 0 and 2
             # so it'll get converted to ontable|0 and ontable|2 when called with action a
-            temp_preds = lattice_node.generate_preds_for_action(predicate, action_name, self.pred_type_mapping,
-                                                                self.action_parameters)
+            temp_preds = lattice_node.generate_preds_for_action(
+                predicate,
+                action_name,
+                self.pred_type_mapping,
+                self.action_parameters,
+            )
             if temp_preds is not None:
                 for temp_pred in temp_preds:
                     pred = temp_pred.split("|")[0]
@@ -974,8 +1371,8 @@ class AgentInterrogation:
         for p, val in m1.actions[action].items():
             pos = False
             neg = False
-            #commenting "|" since its not reqd for grounded version
-            pred = p.split("|")[0] #+ "|"
+            # commenting "|" since its not reqd for grounded version
+            pred = p.split("|")[0]  # + "|"
             count = 0
             for preds in m1.actions[action].keys():
                 if pred in preds:
@@ -991,25 +1388,34 @@ class AgentInterrogation:
                     neg = True
 
             elif p == action_pred and val != m2.actions[action][p]:
-                if {Literal.POS, Literal.NEG} == {val[0], m2.actions[action][p][0]}:
+                if {Literal.POS, Literal.NEG} == {
+                    val[0],
+                    m2.actions[action][p][0],
+                }:
                     continue
-                elif {Literal.POS, Literal.ABS} == {val[0], m2.actions[action][p][0]}:
+                elif {Literal.POS, Literal.ABS} == {
+                    val[0],
+                    m2.actions[action][p][0],
+                }:
                     neg = True
-                elif {Literal.ABS, Literal.NEG} == {val[0], m2.actions[action][p][0]}:
+                elif {Literal.ABS, Literal.NEG} == {
+                    val[0],
+                    m2.actions[action][p][0],
+                }:
                     pos = True
 
             if len(modified_init_states) == 0:
                 temp_init_states = possible_init_states[:]
             else:
                 temp_init_states = modified_init_states[:]
-                #temp_init_states = copy.deepcopy(modified_init_states)
+                # temp_init_states = copy.deepcopy(modified_init_states)
 
             modified_init_states = []
             if pos:
-                for i,s in enumerate(temp_init_states):
+                for i, s in enumerate(temp_init_states):
                     # if str(s.state) == "{'at-player0-cell_1_0': [()], 'at-key0-cell_0_0': [()], 'at-monster_0_1-cell_0_1': [()], 'at-door0-cell_1_1': [()], 'monster_alive-monster_0_1': [()], 'is_player-player0': [()], 'is_monster-monster_0_1': [()], 'is_key-key0': [()], 'is_door-door0': [()], 'leftOf-cell_0_0-cell_1_0': [()], 'leftOf-cell_0_1-cell_1_1': [()], 'rightOf-cell_1_0-cell_0_0': [()], 'rightOf-cell_1_1-cell_0_1': [()], 'above-cell_0_0-cell_0_1': [()], 'above-cell_1_0-cell_1_1': [()], 'below-cell_0_1-cell_0_0': [()], 'below-cell_1_1-cell_1_0': [()]}" and i == 11 and p == 'is_monster-monster_1_0':
                     #     print("T")
- 
+
                     if p.split("|")[0] in s.state.keys():
                         modified_init_states.append(s)
                     # else:
@@ -1018,7 +1424,7 @@ class AgentInterrogation:
                 for s in temp_init_states:
                     if p.split("|")[0] not in s.state.keys():
                         modified_init_states.append(s)
-        
+
         if len(modified_init_states) == 0:
             modified_init_states = possible_init_states[:]
         temp = modified_init_states[:]
@@ -1042,7 +1448,9 @@ class AgentInterrogation:
 
         # Create a lattice object
         latt = Lattice()
-        lattice_node = LatticeNode(latt, [self.abstract_model], self.abstract_predicates)
+        lattice_node = LatticeNode(
+            latt, [self.abstract_model], self.abstract_predicates
+        )
 
         ####################################################################
         # This logic limits number of objects and counts number of objects
@@ -1055,11 +1463,13 @@ class AgentInterrogation:
         for v in self.action_parameters.values():
             type_count = Counter(v)
             for tc in type_count:
-                max_obj_type_count[tc] = max(max_obj_type_count[tc], type_count[tc])
+                max_obj_type_count[tc] = max(
+                    max_obj_type_count[tc], type_count[tc]
+                )
         temp_objects = {}
         for o, item in self.objects.items():
             if len(item) > max_obj_type_count[o] + 1:
-                temp_key = copy.deepcopy(item[0:max_obj_type_count[o]])
+                temp_key = copy.deepcopy(item[0 : max_obj_type_count[o]])
             else:
                 temp_key = copy.deepcopy(item)
             temp_objects[o] = temp_key
@@ -1089,7 +1499,7 @@ class AgentInterrogation:
 
         # int_parent_models holds the possible models at any given point of time.
         int_parent_models = [self.abstract_model]
-        
+
         # action_preds_list is used to store the modified predicates ("ontable|0", etc) corresponding to each action
         # For eg:  actions_pred_list = {'pick-up': ['ontable|0', 'clear|0', 'handempty'], \
         # 'put-down': ['ontable|0', 'clear|0', 'handempty']}
@@ -1104,16 +1514,20 @@ class AgentInterrogation:
 
         orig_possible_state_object_comb = None
         if self.agent.agent_type == "simulator":
-            orig_possible_state_object_comb = copy.deepcopy(self.agent.agent_model.random_states)
+            orig_possible_state_object_comb = copy.deepcopy(
+                self.agent.agent_model.random_states
+            )
         elif self.agent.agent_type == "symbolic":
-            orig_possible_state_object_comb = self.get_possible_init_states(temp_init_state)
+            orig_possible_state_object_comb = self.get_possible_init_states(
+                temp_init_state
+            )
         preprocess_time = time.time() - preprocess_start_time
         agent_exec = 0
 
-        #print("Actual Predicates = " + str(len(self.pred_type_mapping.keys())) + str("\n"))
-        #print("Modified Predicates = " + str(modified_preds_count) + str("\n"))
-        #print("Action Count = " + str(len(self.abstract_model.actions.keys())) + str("\n"))
-        #print("Object Count = " + str(object_count) + str("\n"))
+        # print("Actual Predicates = " + str(len(self.pred_type_mapping.keys())) + str("\n"))
+        # print("Modified Predicates = " + str(modified_preds_count) + str("\n"))
+        # print("Action Count = " + str(len(self.abstract_model.actions.keys())) + str("\n"))
+        # print("Object Count = " + str(object_count) + str("\n"))
 
         tried_cont = 0
         query_1_failed = 0
@@ -1156,9 +1570,11 @@ class AgentInterrogation:
             if predicate is None:
                 next_r = self.get_next_pal_tuple()
                 if next_r is not None:
-                    #abs_predicates = copy.deepcopy(original_abs_preds)
+                    # abs_predicates = copy.deepcopy(original_abs_preds)
                     abs_predicates = original_abs_preds[:]
-                    action_preds_list = copy.deepcopy(original_action_pred_list)
+                    action_preds_list = copy.deepcopy(
+                        original_action_pred_list
+                    )
                 else:
                     exit(0)
                     return False, None
@@ -1178,27 +1594,27 @@ class AgentInterrogation:
             #             action_preds_list[action].remove(pred)
             #     if not pred_valid:
             #         abs_predicates.append(original_pred)
-            #         continue            
+            #         continue
             next_pal_tuple = self.get_next_pal_tuple()
-            
-            #debugging
-            #next_pal_tuple  = ('a1','at-monster_4_1-cell_4_1',Location.PRECOND)
-            #next_pal_tuple = ('a59', 'at-player0-cell_3_1', Location.PRECOND)
-            #next_pal_tuple = ('a10','at_1-block4-cell_2_4',Location.PRECOND)
-            #next_pal_tuple = ('a3', 'wall-cell_4_3', 1)
-            #next_pal_tuple = ('a17', 'at_0-player0-cell_0_4', 1)
-            #next_pal_tuple = ('a22', 'at_0-player0-cell_1_4', 2)
-            #test_state= self.agent.agent_model.translator.get_ground_state(self.agent.agent_model.translator.actions['a22'].state_before)
-            
+
+            # debugging
+            # next_pal_tuple  = ('a1','at-monster_4_1-cell_4_1',Location.PRECOND)
+            # next_pal_tuple = ('a59', 'at-player0-cell_3_1', Location.PRECOND)
+            # next_pal_tuple = ('a10','at_1-block4-cell_2_4',Location.PRECOND)
+            # next_pal_tuple = ('a3', 'wall-cell_4_3', 1)
+            # next_pal_tuple = ('a17', 'at_0-player0-cell_0_4', 1)
+            # next_pal_tuple = ('a22', 'at_0-player0-cell_1_4', 2)
+            # test_state= self.agent.agent_model.translator.get_ground_state(self.agent.agent_model.translator.actions['a22'].state_before)
+
             if previous_pal_tuple == next_pal_tuple:
                 print("Repeating....")
-                #IPython.embed()
-                input()
-            
+                # IPython.embed()
+                # input()
+
             predicate = next_pal_tuple[1]
-            #if predicate == 'next_to_monster-':
+            # if predicate == 'next_to_monster-':
             #    print("Here")
-            #next_pal_tuple = ('a11', 'at_0-player0-cell_2_1', Location.PRECOND)  
+            # next_pal_tuple = ('a11', 'at_0-player0-cell_2_1', Location.PRECOND)
             print("ACTUAL NEXT PAL TUPLE: ", next_pal_tuple)
             tmp_int_parent_models = []
             action_pred_rejection_combination = {}
@@ -1211,12 +1627,15 @@ class AgentInterrogation:
 
                 # partitions stores the partitions for a refinement next_pal_tuple when called on
                 # a model temp_abs_model
-                intermediate_models = lattice_node.get_model_partitions(temp_abs_model, action_pred,
-                                                                        ref, action, tuple(modes))
+                intermediate_models = lattice_node.get_model_partitions(
+                    temp_abs_model, action_pred, ref, action, tuple(modes)
+                )
 
                 # Run query and discard models here
                 # Remove all invalid models and store only the valid ones
-                valid_models = [i for i in intermediate_models if not i.discarded]
+                valid_models = [
+                    i for i in intermediate_models if not i.discarded
+                ]
 
                 # Generate all possible combinations of models
                 for m1, m2 in combinations(valid_models, 2):
@@ -1229,110 +1648,160 @@ class AgentInterrogation:
                         continue
 
                     if len(action_pred_rejection_combination) > 0:
-                        if self.is_model_rejectable(m1, action_pred_rejection_combination):
+                        if self.is_model_rejectable(
+                            m1, action_pred_rejection_combination
+                        ):
                             new_discard_count += 1
                             self.discard_model(m1, valid_models)
-                        if self.is_model_rejectable(m2, action_pred_rejection_combination):
+                        if self.is_model_rejectable(
+                            m2, action_pred_rejection_combination
+                        ):
                             new_discard_count += 1
                             self.discard_model(m2, valid_models)
 
                     tried_cont += 1
                     init_state_tried = 0
-                    #possible_state_objects = copy.deepcopy(orig_possible_state_object_comb) #slow
+                    # possible_state_objects = copy.deepcopy(orig_possible_state_object_comb) #slow
                     possible_state_objects = orig_possible_state_object_comb[:]
 
                     is_any_model_discarded = False
                     if ref == Location.PRECOND:
-                        #This is taking a lot of time in pasta domain... WHY?
-                        modified_state_objects = self.get_modified_init_states(next_pal_tuple, m1, m2,
-                                                                               possible_state_objects)
+                        # This is taking a lot of time in pasta domain... WHY?
+                        modified_state_objects = self.get_modified_init_states(
+                            next_pal_tuple, m1, m2, possible_state_objects
+                        )
 
                     else:
                         # modified_state_objects = copy.deepcopy(possible_state_objects)#slow
-                        modified_state_objects = possible_state_objects[:] 
-                    
-                    
+                        modified_state_objects = possible_state_objects[:]
+
                     # with open("test_modified_init","wb") as f:
                     #     pickle.dump(modified_state_objects,f)
-                    
+
                     # with open("test_modified_init","rb") as f:
                     #     temp_modified_state_objects = pickle.load(f)
 
-                    for _i,state_objs in enumerate(modified_state_objects):
-                        # check all init_states for plan execution, if none work, select a init state which 
+                    for _i, state_objs in enumerate(modified_state_objects):
+                        # check all init_states for plan execution, if none work, select a init state which
                         # can distinguish and use that for update_pal_ordering
-                        accepted_init_states=[]
-                        #init_state = state_objs.state
+                        accepted_init_states = []
+                        # init_state = state_objs.state
                         init_state = state_objs
                         self.objects = state_objs.objects
                         # with open("test_init","rb") as f:
                         #     init_state_temp = pickle.load(f)
-                        #init_state = init_state_temp
+                        # init_state = init_state_temp
                         init_state_tried += 1
                         # preds_in_m1_m2 =  list(set(list(m1.predicates.keys())) & set(list(m2.predicates.keys())))
                         # preds_in_m1_m2 = [i for j in preds_in_m1_m2 for i in j.split("|")]
                         # if list(set(preds_in_m1_m2) & set(list(init_state.keys()))) == []:
                         # 	continue
-                        #init_state=t.get_ground_state(t.high_actions['a1'][0])
-                        #init_state= self.agent.agent_model.translator.get_ground_state(self.agent.agent_model.translator.high_actions['a22'][0])    
-                        plan_raw = self.generate_query(po_query_module,
-                                                       m1, m2, init_state.state, next_pal_tuple)
-                        
-                        print("Generating Query"+str(init_state_tried))
-                        if len(plan_raw)==0:
+                        # init_state=t.get_ground_state(t.high_actions['a1'][0])
+                        # init_state= self.agent.agent_model.translator.get_ground_state(self.agent.agent_model.translator.high_actions['a22'][0])
+                        plan_raw = self.generate_query(
+                            po_query_module,
+                            m1,
+                            m2,
+                            init_state.state,
+                            next_pal_tuple,
+                        )
+
+                        print("Generating Query" + str(init_state_tried))
+                        if len(plan_raw) == 0:
                             print("No plan found")
-                            
-                            if _i == len(modified_state_objects)-1 :
+
+                            if _i == len(modified_state_objects) - 1:
                                 print("Ran out of states")
                                 self.difficult_pal_tuple.append(next_pal_tuple)
-                                #input()
-                                break
-                        
-                        if len(plan_raw)!= 0:
-                            accepted_init_states.append(init_state)
-                            is_executable_agent, failure_index, state = self.ask_query(init_state.state, plan_raw)
-                            agent_exec += 1
-                            #testing update_pal_ordering
-                            #if (failure_index != len(plan_raw) or not is_executable_agent) and _i == len(modified_state_objects)-1:
-                            #if (failure_index != len(plan_raw) or not is_executable_agent) and init_state_tried == len(modified_state_objects):
-                            if(failure_index != len(plan_raw)):
-                                print("Updating PAL ordering")
-                                print(len(plan_raw))
-                                init_state = random.choice(accepted_init_states)
-                                refined_for_agent_failure, valid_models = self.update_pal_ordering(init_state.state,
-                                                                                                       failure_index,
-                                                                                                   plan_raw,
-                                                                                                   valid_models,
-                                                                                                   next_pal_tuple, m1,
-                                                                                                   m2, po_query_module,
-                                                                                                   lattice_node)
+                                # input()
                                 break
 
-                            elif failure_index == len(plan_raw) and is_executable_agent:
+                        if len(plan_raw) != 0:
+                            accepted_init_states.append(init_state)
+                            is_executable_agent, failure_index, state = (
+                                self.ask_query(init_state.state, plan_raw)
+                            )
+                            agent_exec += 1
+                            # testing update_pal_ordering
+                            # if (failure_index != len(plan_raw) or not is_executable_agent) and _i == len(modified_state_objects)-1:
+                            # if (failure_index != len(plan_raw) or not is_executable_agent) and init_state_tried == len(modified_state_objects):
+                            if failure_index != len(plan_raw):
+                                print("Updating PAL ordering")
+                                print(len(plan_raw))
+                                init_state = random.choice(
+                                    accepted_init_states
+                                )
+                                refined_for_agent_failure, valid_models = (
+                                    self.update_pal_ordering(
+                                        init_state.state,
+                                        failure_index,
+                                        plan_raw,
+                                        valid_models,
+                                        next_pal_tuple,
+                                        m1,
+                                        m2,
+                                        po_query_module,
+                                        lattice_node,
+                                    )
+                                )
+                                break
+
+                            elif (
+                                failure_index == len(plan_raw)
+                                and is_executable_agent
+                            ):
                                 # with open("test_init","wb") as f:
                                 #     pickle.dump(init_state,f)
-                                discarded_count, is_any_model_discarded, \
-                                valid_models = self.discard_models(m1, m2, init_state.state, plan_raw,
-                                                                   next_pal_tuple, valid_models, action, action_pred,
-                                                                   action_pred_rejection_combination, state, predicate,
-                                                                   modes, po_query_module, discarded_count, ref)
-                                print("Discarding"+str(is_any_model_discarded))
+                                (
+                                    discarded_count,
+                                    is_any_model_discarded,
+                                    valid_models,
+                                ) = self.discard_models(
+                                    m1,
+                                    m2,
+                                    init_state.state,
+                                    plan_raw,
+                                    next_pal_tuple,
+                                    valid_models,
+                                    action,
+                                    action_pred,
+                                    action_pred_rejection_combination,
+                                    state,
+                                    predicate,
+                                    modes,
+                                    po_query_module,
+                                    discarded_count,
+                                    ref,
+                                )
+                                print(
+                                    "Discarding" + str(is_any_model_discarded)
+                                )
                                 if m1.discarded:
-                                    print("Discarded "+str(next_pal_tuple)+" "+str(m1.actions[action][action_pred]))
+                                    print(
+                                        "Discarded "
+                                        + str(next_pal_tuple)
+                                        + " "
+                                        + str(m1.actions[action][action_pred])
+                                    )
                                 else:
-                                    print("Discarded "+str(next_pal_tuple)+" "+str(m2.actions[action][action_pred]))
+                                    print(
+                                        "Discarded "
+                                        + str(next_pal_tuple)
+                                        + " "
+                                        + str(m2.actions[action][action_pred])
+                                    )
                             else:
-                                #exit()
+                                # exit()
                                 print("3rd case")
                                 continue
-                
+
                         if is_any_model_discarded or refined_for_agent_failure:
                             break
 
                     if refined_for_agent_failure:
                         break
-                        
-                    #update pal ordering asks for new states and then resolves the pal tuple
+
+                    # update pal ordering asks for new states and then resolves the pal tuple
                     # if len(plan_raw) == 0 and init_state_tried == len(modified_state_objects):
                     #     print("Updating PAL ordering after exhausting init states")
                     #     print(len(plan_raw))
@@ -1347,19 +1816,26 @@ class AgentInterrogation:
                 t_valid_models = [i for i in valid_models if not i.discarded]
                 if refined_for_agent_failure and len(t_valid_models) == 3:
                     break
-                tmp_int_parent_models = [i for i in valid_models if not i.discarded]
+                tmp_int_parent_models = [
+                    i for i in valid_models if not i.discarded
+                ]
 
             if refined_for_agent_failure:
                 int_parent_models = copy.deepcopy(valid_models)
-                #commenting this because earlier block of choosing pred was commented
-                #action_preds_list = copy.deepcopy(temp_action_preds_list)
+                # commenting this because earlier block of choosing pred was commented
+                # action_preds_list = copy.deepcopy(temp_action_preds_list)
                 continue
 
             valid_models = [i for i in valid_models if not i.discarded]
-            if len(valid_models) == 1 and not self.pal_tuple_dict[next_pal_tuple]:
+            if (
+                len(valid_models) == 1
+                and not self.pal_tuple_dict[next_pal_tuple]
+            ):
                 self.fix_pal_tuple(next_pal_tuple, valid_models)
-                tmp_int_parent_models = [i for i in valid_models if not i.discarded]
-    
+                tmp_int_parent_models = [
+                    i for i in valid_models if not i.discarded
+                ]
+
             int_parent_models = copy.deepcopy(tmp_int_parent_models)
             model_level += 1
             model_count = 1
@@ -1374,7 +1850,7 @@ class AgentInterrogation:
                             temp_num_models += 1
                         if v[1] in [Literal.AP, Literal.AN, Literal.NP]:
                             temp_num_models += 1
-                total_models += 2 ** temp_num_models
+                total_models += 2**temp_num_models
 
             # pp = pprint.PrettyPrinter(indent=2)
             # if len(valid_models) <= 3:
@@ -1401,19 +1877,29 @@ class AgentInterrogation:
 
         total_models = 0
         for num in num_models:
-            total_models += 2 ** num
+            total_models += 2**num
         len(self.abstract_model.actions.keys())
         pp = pprint.PrettyPrinter(indent=2)
         print("Predicted Model: ")
         # for v in valid_models:
         #     pp.pprint(v.actions)
-            
+
         print("Total Possible Models = " + str(total_models) + str("\n"))
-        print("Number of times Agent Executed = " + str(agent_exec) + str("\n"))
+        print(
+            "Number of times Agent Executed = " + str(agent_exec) + str("\n")
+        )
         print("Preprocessing Time = " + str(preprocess_time) + str("\n"))
-        print("Actual Predicates = " + str(len(self.pred_type_mapping.keys())) + str("\n"))
+        print(
+            "Actual Predicates = "
+            + str(len(self.pred_type_mapping.keys()))
+            + str("\n")
+        )
         print("Modified Predicates = " + str(modified_preds_count) + str("\n"))
-        print("Action Count = " + str(len(self.abstract_model.actions.keys())) + str("\n"))
+        print(
+            "Action Count = "
+            + str(len(self.abstract_model.actions.keys()))
+            + str("\n")
+        )
         print("Object Count = " + str(object_count) + str("\n"))
 
         print("Possible Model count = " + str(len(valid_models)))
@@ -1428,4 +1914,10 @@ class AgentInterrogation:
         print("New Discard count = " + str(new_discard_count))
         print("\n")
         # adding valid_models to return for data collection
-        return self.query_new, (time.time() - self.start_time), self.data_dict, self.pal_tuples_fixed,valid_models
+        return (
+            self.query_new,
+            (time.time() - self.start_time),
+            self.data_dict,
+            self.pal_tuples_fixed,
+            valid_models,
+        )

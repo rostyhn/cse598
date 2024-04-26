@@ -8,76 +8,89 @@ import subprocess
 from collections import OrderedDict
 
 import numpy as np
-# import pddlgym
-from utils.parser import PDDLDomainParser, structs
-
 import utils.translate.pddl_fd as pddl
 import utils.translate.pddl_parser as pddl_parser
 from config import *
 from utils import FileUtils
 
+# import pddlgym
+from utils.parser import PDDLDomainParser, structs
+
 
 def extract_task(domain_file_path, problem_file_path):
     # Extract the domain specific args.
     domain_pddl = pddl_parser.pddl_file.parse_pddl_file(
-        "domain", domain_file_path)
-    domain_name, \
-    domain_requirements, \
-    types, \
-    type_dict, \
-    constants, \
-    predicates, \
-    predicate_dict, \
-    functions, \
-    actions, \
-    axioms = pddl_parser.parsing_functions.parse_domain_pddl(
-        domain_pddl)
+        "domain", domain_file_path
+    )
+    (
+        domain_name,
+        domain_requirements,
+        types,
+        type_dict,
+        constants,
+        predicates,
+        predicate_dict,
+        functions,
+        actions,
+        axioms,
+    ) = pddl_parser.parsing_functions.parse_domain_pddl(domain_pddl)
 
     task_pddl = pddl_parser.pddl_file.parse_pddl_file(
-        "task", problem_file_path)
-    task_name, \
-    task_domain_name, \
-    task_requirements, \
-    objects, \
-    init, \
-    goal, \
-    use_metric = pddl_parser.parsing_functions.parse_task_pddl(
-        task_pddl, type_dict, predicate_dict)
+        "task", problem_file_path
+    )
+    (
+        task_name,
+        task_domain_name,
+        task_requirements,
+        objects,
+        init,
+        goal,
+        use_metric,
+    ) = pddl_parser.parsing_functions.parse_task_pddl(
+        task_pddl, type_dict, predicate_dict
+    )
 
     assert domain_name == task_domain_name
-    requirements = pddl.Requirements(sorted(set(
-        domain_requirements.requirements +
-        task_requirements.requirements)))
+    requirements = pddl.Requirements(
+        sorted(
+            set(
+                domain_requirements.requirements
+                + task_requirements.requirements
+            )
+        )
+    )
     objects = constants + objects
     pddl_parser.parsing_functions.check_for_duplicates(
         [o.name for o in objects],
         errmsg="error: duplicate object %r",
-        finalmsg="please check :constants and :objects definitions")
+        finalmsg="please check :constants and :objects definitions",
+    )
 
     #############################
-    init += [pddl.Atom("=", (obj.name, obj.name))
-             for obj in objects]
+    init += [pddl.Atom("=", (obj.name, obj.name)) for obj in objects]
     #############################
 
-    task = pddl.Task(domain_name,
-                     task_name,
-                     requirements,
-                     types,
-                     objects,
-                     predicates,
-                     functions,
-                     init,
-                     goal,
-                     actions,
-                     axioms,
-                     use_metric)
+    task = pddl.Task(
+        domain_name,
+        task_name,
+        requirements,
+        types,
+        objects,
+        predicates,
+        functions,
+        init,
+        goal,
+        actions,
+        axioms,
+        use_metric,
+    )
     return task
 
 
 def check_nested(test_dict):
     for key1, val in test_dict.items():
         for key2 in test_dict.keys():
-            if key2 in val and key1 != 'object':
+            if key2 in val and key1 != "object":
                 return True, key2, key1
     return False, None, None
 
@@ -95,8 +108,9 @@ class PredicateDetails:
         if literal.is_negative == True and literal.is_anti == False:
             self.isnegative = True
         for pred in predTypeMapping:
-            if literal.predicate.name in pred and sorted(list(self.param_matching.values())) == sorted(
-                    list(predTypeMapping[pred])):
+            if literal.predicate.name in pred and sorted(
+                list(self.param_matching.values())
+            ) == sorted(list(predTypeMapping[pred])):
                 self.name = pred
                 name_set = True
         if not name_set:
@@ -104,7 +118,13 @@ class PredicateDetails:
             print("pred not found")
 
     def __str__(self):
-        return self.name + "(" + str(self.param_matching) + ")" + str(self.isnegative)
+        return (
+            self.name
+            + "("
+            + str(self.param_matching)
+            + ")"
+            + str(self.isnegative)
+        )
 
 
 class ActionDetails:
@@ -120,13 +140,26 @@ class ActionDetails:
         for i, param in enumerate(action.params):
             self.param_matching[param.name] = param_types[i]
         try:
-            if isinstance(action.preconds,  structs.LiteralConjunction):
-                [self.precondition.append(PredicateDetails(lit, self.param_matching, predTypeMapping)) for lit in
-                 action.preconds.literals]
-                [self.precondition_literal_names.append(p.name) for p in self.precondition]
+            if isinstance(action.preconds, structs.LiteralConjunction):
+                [
+                    self.precondition.append(
+                        PredicateDetails(
+                            lit, self.param_matching, predTypeMapping
+                        )
+                    )
+                    for lit in action.preconds.literals
+                ]
+                [
+                    self.precondition_literal_names.append(p.name)
+                    for p in self.precondition
+                ]
 
             elif isinstance(action.preconds, structs.Literal):
-                self.precondition.append(PredicateDetails(action.preconds, self.param_matching, predTypeMapping))
+                self.precondition.append(
+                    PredicateDetails(
+                        action.preconds, self.param_matching, predTypeMapping
+                    )
+                )
 
             else:
                 print("Some other action precondition type")
@@ -135,7 +168,9 @@ class ActionDetails:
             print("Attribute Error!")
 
         for lit in action.effects.literals:
-            self.effects.append(PredicateDetails(lit, self.param_matching, predTypeMapping))
+            self.effects.append(
+                PredicateDetails(lit, self.param_matching, predTypeMapping)
+            )
 
         for p in self.effects:
             if p.isnegative:
@@ -144,9 +179,17 @@ class ActionDetails:
                 self.add_effects_literal_names.append(p.name)
 
     def __str__(self):
-        return self.name + "\nParams: [\n" + str(self.params) + "\n]\n Precond:[\n " + str(
-            self.precondition) + "\n] Add_effects:[\n" + str(self.add_effects) + "\n] Del_effects:[\n" + str(
-            self.del_effects)
+        return (
+            self.name
+            + "\nParams: [\n"
+            + str(self.params)
+            + "\n]\n Precond:[\n "
+            + str(self.precondition)
+            + "\n] Add_effects:[\n"
+            + str(self.add_effects)
+            + "\n] Del_effects:[\n"
+            + str(self.del_effects)
+        )
 
 
 def generate_ds(domain_file, problem_file):
@@ -200,9 +243,11 @@ def generate_ds(domain_file, problem_file):
         if nested:
             args = itertools.product(*args)
             for i, arg_p in enumerate(args):
-                predTypeMapping[pred_name + '-' + str(i + 1)] = arg_p
+                predTypeMapping[pred_name + "-" + str(i + 1)] = arg_p
         else:
-            predTypeMapping[pred_name] = list(itertools.chain.from_iterable(args))
+            predTypeMapping[pred_name] = list(
+                itertools.chain.from_iterable(args)
+            )
 
     ####################init_state###############################
     for item in task.init:
@@ -219,7 +264,7 @@ def generate_ds(domain_file, problem_file):
     action_details = {}
     for op_name in operators:
         op = operators[op_name]
-        op_params = [];
+        op_params = []
         [op_params.append(i.var_type) for i in op.params]
         nested = False
         for i, arg in enumerate(op_params):
@@ -232,11 +277,19 @@ def generate_ds(domain_file, problem_file):
         if nested:
             args = itertools.product(*op_params)
             for i, arg_p in enumerate(args):
-                action_parameters[op_name + '-' + str(i + 1)] = arg_p
-                action_details[op_name + '-' + str(i + 1)] = ActionDetails(op, arg_p, predTypeMapping)
+                action_parameters[op_name + "-" + str(i + 1)] = arg_p
+                action_details[op_name + "-" + str(i + 1)] = ActionDetails(
+                    op, arg_p, predTypeMapping
+                )
         else:
-            action_parameters[op_name] = list(itertools.chain.from_iterable(op_params))
-            action_details[op_name] = ActionDetails(op, list(itertools.chain.from_iterable(op_params)), predTypeMapping)
+            action_parameters[op_name] = list(
+                itertools.chain.from_iterable(op_params)
+            )
+            action_details[op_name] = ActionDetails(
+                op,
+                list(itertools.chain.from_iterable(op_params)),
+                predTypeMapping,
+            )
     ##########################abstract_model#######################
     abstract_model = {}
     for action in action_parameters.keys():
@@ -251,58 +304,108 @@ def generate_ds(domain_file, problem_file):
                 if len(set(pred_params).difference(set(action_params))) == 0:
                     # check for multiple presence
                     param_indices = []
-                    [param_indices.append(list(np.where(np.array(action_params) == p))[0].tolist()) for p in
-                     pred_params]
+                    [
+                        param_indices.append(
+                            list(np.where(np.array(action_params) == p))[
+                                0
+                            ].tolist()
+                        )
+                        for p in pred_params
+                    ]
                     combinations = list(itertools.product(*param_indices))
                     if len(combinations) > 1:
                         for c in combinations:
                             if len(c) != len(set(c)):
                                 continue
-                            agent_model[action_name][pred + '|' + "|".join(map(str, c))] = [Literal.ABS, Literal.ABS]
+                            agent_model[action_name][
+                                pred + "|" + "|".join(map(str, c))
+                            ] = [Literal.ABS, Literal.ABS]
                             for l in action.precondition:
                                 if l.name == pred:
-                                    action_local_params = [list(action.param_matching.keys())[i] for i in list(c)]
-                                    if action_local_params == list(l.param_matching.keys()):
+                                    action_local_params = [
+                                        list(action.param_matching.keys())[i]
+                                        for i in list(c)
+                                    ]
+                                    if action_local_params == list(
+                                        l.param_matching.keys()
+                                    ):
                                         if l.isnegative:
-                                            agent_model[action_name][pred + '|' + "|".join(map(str, c))][
-                                                0] = Literal.NEG
+                                            agent_model[action_name][
+                                                pred
+                                                + "|"
+                                                + "|".join(map(str, c))
+                                            ][0] = Literal.NEG
                                         else:
-                                            agent_model[action_name][pred + '|' + "|".join(map(str, c))][
-                                                0] = Literal.POS
+                                            agent_model[action_name][
+                                                pred
+                                                + "|"
+                                                + "|".join(map(str, c))
+                                            ][0] = Literal.POS
                             for l in action.effects:
                                 if l.name == pred:
-                                    action_local_params = [list(action.param_matching.keys())[i] for i in list(c)]
-                                    if action_local_params == list(l.param_matching.keys()):
+                                    action_local_params = [
+                                        list(action.param_matching.keys())[i]
+                                        for i in list(c)
+                                    ]
+                                    if action_local_params == list(
+                                        l.param_matching.keys()
+                                    ):
                                         if l.isnegative:
-                                            agent_model[action_name][pred + '|' + "|".join(map(str, c))][
-                                                1] = Literal.NEG
+                                            agent_model[action_name][
+                                                pred
+                                                + "|"
+                                                + "|".join(map(str, c))
+                                            ][1] = Literal.NEG
                                         else:
-                                            agent_model[action_name][pred + '|' + "|".join(map(str, c))][
-                                                1] = Literal.POS
+                                            agent_model[action_name][
+                                                pred
+                                                + "|"
+                                                + "|".join(map(str, c))
+                                            ][1] = Literal.POS
                     else:
                         if len(combinations[0]) != len(set(combinations[0])):
                             continue
                         str_app = "|".join(map(str, combinations[0]))
                         if str_app:
-                            modified_pred = pred + '|' + str_app
+                            modified_pred = pred + "|" + str_app
                         else:
                             modified_pred = copy.deepcopy(pred)
-                        agent_model[action_name][modified_pred] = [Literal.ABS, Literal.ABS]
+                        agent_model[action_name][modified_pred] = [
+                            Literal.ABS,
+                            Literal.ABS,
+                        ]
                         for l in action.precondition:
                             if l.name == pred:
                                 if l.isnegative:
-                                    agent_model[action_name][modified_pred][0] = Literal.NEG
+                                    agent_model[action_name][modified_pred][
+                                        0
+                                    ] = Literal.NEG
                                 else:
-                                    agent_model[action_name][modified_pred][0] = Literal.POS
+                                    agent_model[action_name][modified_pred][
+                                        0
+                                    ] = Literal.POS
                         for l in action.effects:
                             if l.name == pred:
                                 if l.isnegative:
-                                    agent_model[action_name][modified_pred][1] = Literal.NEG
+                                    agent_model[action_name][modified_pred][
+                                        1
+                                    ] = Literal.NEG
                                 else:
-                                    agent_model[action_name][modified_pred][1] = Literal.POS
+                                    agent_model[action_name][modified_pred][
+                                        1
+                                    ] = Literal.POS
             except KeyError as e:
                 print("Key Error")
-    return action_parameters, predTypeMapping, agent_model, abstract_model, objects, reverse_types, init_state, task.domain_name
+    return (
+        action_parameters,
+        predTypeMapping,
+        agent_model,
+        abstract_model,
+        objects,
+        reverse_types,
+        init_state,
+        task.domain_name,
+    )
 
 
 def get_plan(domain_file, problem_file):
@@ -325,7 +428,7 @@ def get_plan(domain_file, problem_file):
 
     if PLANNER == "FF":
         result_file = temp_output_file
-        param = FF_PATH + "ff"
+        param = "ff-planner"
         param += " -o " + domain_file
         param += " -f " + problem_file
         param += " > " + result_file
@@ -335,13 +438,20 @@ def get_plan(domain_file, problem_file):
         plan = FileUtils.get_plan_from_file(result_file)
 
     elif PLANNER == "FD":
-        cmd = FD_PATH + 'fast-downward.py ' + domain_file + ' ' + problem_file + ' --search "astar(lmcut())"'
+        cmd = (
+            FD_PATH
+            + "fast-downward.py "
+            + domain_file
+            + " "
+            + problem_file
+            + ' --search "astar(lmcut())"'
+        )
         plan = os.popen(cmd).read()
-        proc_plan = plan.split('\n')
-        cost = [i for i, s in enumerate(proc_plan) if 'Plan cost:' in s]
-        if 'Solution found!' not in proc_plan:
+        proc_plan = plan.split("\n")
+        cost = [i for i, s in enumerate(proc_plan) if "Plan cost:" in s]
+        if "Solution found!" not in proc_plan:
             print("No Solution")
             return [], 0
-        plan = proc_plan[proc_plan.index('Solution found!') + 2: cost[0] - 1]
+        plan = proc_plan[proc_plan.index("Solution found!") + 2 : cost[0] - 1]
 
     return plan

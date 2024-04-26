@@ -87,7 +87,7 @@ class Query(gc.GenericQuery):
 
         """
         if PLANNER == "FF":
-            param = FF_PATH + "ff"
+            param = "ff-planner"
             param += " -o " + domain_file
             param += " -f " + problem_file
             param += " > " + result_file

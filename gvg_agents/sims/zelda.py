@@ -1554,6 +1554,7 @@ class ZeldaGVGAgent():
             tstate = self.translator.get_next_state(cstate,a)
             cstate=copy.deepcopy(tstate)
             states.append(cstate)
+        
         if not _actions:
             return states
         else:
